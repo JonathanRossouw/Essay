@@ -23,7 +23,37 @@ list.files('code/', full.names = T, recursive = T) %>% .[grepl('.R', .)] %>% .[!
 
 The data used in the practical is the total return index (TRI) of the ALSI. This is price adjusted for dividends, stock splits and other corporate actions. The data is split into training, validation and test series. The training set is from 05-01-2009 to 30-12-2016, the validation set is from 03-01-2017 to 31-12-2018, and the test set is from 03-01-2019 to 31-12-2019. Returns, dlogret, are calculated using log difference of TRI, log(TRI) - log(lag(TRI)). The volatility, sigma, is calculated as dlogret^2.
 
+```{r data_wrangling_func}
+#### Data Wrangling Function
 
+data_wrangling_func <- function(data, start_date, final_date, type = "normal"){
+    # Filter dates and replace NAs with 0
+    data <- data  %>% filter(date < as.Date(final_date))
+    # Create dlog returns, volatility given by 5 day moving average of squared dlog returns
+    data <- data %>%
+        filter(date > as.Date(start_date) & date < as.Date(final_date)) %>%
+        mutate(dlogret = log(TRI) - lag(log(TRI))) %>%
+        filter(date > first(date)) %>%
+        mutate(y = dlogret^2) %>%
+        mutate(y = zoo::rollmean(y, 5, fill = NA, align = 'right')) %>%
+        tail(-4)
+    # Create AR(1) residuals for sigma
+    ar <- arima(data$dlogret, order = c(1,0,0))
+    data <- data %>% mutate(sigma = ar$residuals^2)
+
+
+    if(type == "scaled"){
+        # Rescale Min Max
+        data <- data %>%
+            mutate(sigma = (sigma - min(sigma))/(max(sigma) - min(sigma))) %>%
+            mutate(y = (y - min(y))/(max(y) - min(y))) %>%
+            select(date, y, sigma)
+        return(data)
+    }
+    data
+}
+
+```
 
 ```{r split, message=FALSE, warning=FALSE}
 data <- fmxdat::Jalshtr
@@ -60,10 +90,123 @@ data_test_scaled <- data_wrangling_func(data = data,
 ```
 
 # GARCH Model
+
+```{r garch_func}
+
+# Test for conditional heteroskedasticity
+test_cond_het_func <- function(data = data){
+
+    Plotdata <- data %>%
+        mutate(Returns = dlogret,
+               Returns_Sqd = dlogret^2,
+               Returns_Abs = abs(dlogret))
+
+    Plotdata <- Plotdata %>%
+        pivot_longer(c("Returns", "Returns_Sqd", "Returns_Abs"), names_to = "ReturnType", values_to = "Returns")
+
+    ret_plot <- Plotdata %>% ggplot() +
+        geom_line(aes(x = date, y = Returns, colour = ReturnType), alpha = 0.8) +
+
+        ggtitle("Return Type Persistence") +
+        facet_wrap(~ReturnType, nrow = 3, ncol = 1, scales = "free") +
+
+        guides(alpha = "none", colour = "none") +
+        fmxdat::theme_fmx()
+
+    acf_1 <- Plotdata %>%
+        ggplot() + geom_acf(aes(x = ..lag.., y = dlogret)) + theme_bw() + labs(subtitle = "ACF of Dlog Ret", y = "")
+    acf_2 <- Plotdata %>%
+        ggplot() + geom_acf(aes(x = ..lag.., y = dlogret^2)) + theme_bw() + labs(subtitle = "ACF of Sqaured Dlog Ret", y = "")
+    acf_3 <- Plotdata %>%
+        ggplot() + geom_acf(aes(x = ..lag.., y = abs(dlogret))) + theme_bw() + labs(subtitle = "ACF of Absolute value of Dlog Ret", y = "")
+
+    acf_plots <- plot_grid(acf_1, acf_2, acf_3, nrow = 1)
+
+    box_stats <- Box.test(data$dlogret^2, type = "Ljung-Box", lag = 12)
+
+    out <- list(`Return Plots` = ret_plot,
+                `ACF Plots` = acf_plots,
+                `Box Statistics` = box_stats)
+    out
+
+}
+
+# Select Best Garch Model
+vol_select_func <- function(data = data){
+
+    data <- data %>% select(date, dlogret) %>%  tbl_xts()
+    models = 1:4
+    model.list = list()
+
+    for (p in models) {
+
+        garchfit = ugarchspec(
+            variance.model = list(model = c("sGARCH","gjrGARCH","eGARCH","apARCH")[p], garchOrder = c(1, 1)),
+
+            mean.model = list(armaOrder = c(1, 0), include.mean = TRUE),
+
+            distribution.model = c("norm", "snorm", "std", "sstd", "ged", "sged", "nig", "ghyp", "jsu")[1])
+
+        garchfit1 = ugarchfit(spec = garchfit,data=as.numeric(data))
+
+        model.list[[p]] = garchfit1
+    }
+
+    names(model.list) <- c("sGARCH","gjrGARCH","eGARCH","apARCH")
+
+    fit.mat = sapply(model.list, infocriteria)
+    # Note: sapply can apply a function (infocriteria here) to a list...
+
+    rownames(fit.mat) = rownames(infocriteria(model.list[[1]]))
+
+    fit.mat
+
+}
+
+# Fit GARCH function
+vol_func <- function(data = data, model = "sGARCH"){
+
+    data <- data %>% select(date, dlogret) %>%  tbl_xts()
+
+    gjrgarch11 = ugarchspec(variance.model = list(model = model,
+
+                                                  garchOrder = c(1, 1)),
+
+                            mean.model = list(armaOrder = c(1, 0), include.mean = TRUE),
+
+                            distribution.model = c("norm", "snorm", "std", "sstd", "ged", "sged", "nig", "ghyp", "jsu")[3])
+    # Now to fit, I use as.matrix and the data - this way the plot functions we will use later will work.
+    garchfit2 = ugarchfit(spec = gjrgarch11, data = as.matrix(data))
+
+    garchfit2
+}
+
+# Plot Smoothed Ret^2
+vol_plot_func <- function(data = data, fit = garch_fit, title){
+    # To view the conditional variance plot, use:
+    sigma <- fit
+
+    gg <- data %>%
+
+        ggplot() +
+        geom_line(aes(date, y), alpha = 0.8) +
+        geom_line(data = sigma, aes(x = date, y = sigma), color = "red", size = 1.2, alpha = 0.8) +
+        labs(title = title, x = "", y = "Comparison of estimated volatility") +
+        fmxdat::theme_fmx(title = ggpts(25))
+    fmxdat::finplot(gg, y.pct_acc = 1)
+
+}
+
+
+```
+
+
+
 ```{r garch}
 
 # Test for GARCH effects
 cond_het <- test_cond_het_func(data_train)
+cond_het
 
 # Find best model
 best_mod <- vol_select_func(data_train)
@@ -89,7 +232,7 @@ vol_plot_func(data = data_train_scaled,
 # Fit Model
 garch_fit_val <- vol_func(data_val, "eGARCH")
 # Model Coefficients
-stargazer::stargazer(garch_fit_val@fit$matcoef, type = "html")
+garch_fit_val@fit$matcoef
 
 # Plot Model
 vol_plot_func(data = data_val_scaled, 
@@ -125,6 +268,56 @@ Wrangle data for LSTM. Use min-max scaling on series. Store min-max values for l
 ## One Day Forecast
 
 Create lists of arrays with correct structure for LSTM model. The previous two days return and two days volatility are used as inputs with a single day's volatility being predicted.
+
+```{r}
+###### Simple LSTM Array Function
+
+data_array_func <- function(data, val, initial, assess, skip, type){
+
+    inner_func <- function(data, initial, assess, skip, type){
+        # Select Appropriate Data
+        data <- data %>%
+            dplyr::select(date, y, sigma) #%>% head((nrow(data) - 14))
+        # Creating Rolling Data Splits
+        data_rol <- rolling_origin(data,
+                                   initial = initial,
+                                   assess = assess,
+                                   skip = skip,
+                                   cumulative = FALSE)
+        # Create Training Predictor Array
+        x_array_y <- lapply(data_rol$splits, FUN = function(X){analysis(X)$y})
+        x_array_sigma <- lapply(data_rol$splits, FUN = function(X){analysis(X)$sigma})
+
+        x_array <- array(data = c(unlist(x_array_y),
+                                        unlist(x_array_sigma)),
+                               dim = c(length(x_array_y), initial, 2))
+
+        if(type == "three_day"){
+            x_array <- x_array %>% head(-2)
+        }
+
+        # Create Training Target Array
+        y_array <- lapply(data_rol$splits, FUN = function(X){testing(X)$y})
+        y_array <- do.call("rbind", y_array) %>%
+            array(., dim = c(length(y_array), assess, 1))
+
+        if(type == "three_day"){
+            y_array <- y_array %>% tail(-2)
+        }
+        return(list(x_array, y_array))
+    }
+
+    train_arrays <- inner_func(data = data, initial = initial, assess = assess, skip = skip, type = type)
+    val_arrays <- inner_func(data = val, initial = initial, assess = assess, skip = skip, type = type)
+
+    return(list(x_train_array = train_arrays[[1]],
+                y_train_array = train_arrays[[2]],
+                x_val_array = val_arrays[[1]],
+                y_val_array = val_arrays[[2]]))
+}
+
+```
+
 
 ```{r create-arrays}
 ### Create LSTM Data Arrays
@@ -164,6 +357,122 @@ lstm_hyp <- expand.grid(loss = c("mse"),
 ```
 
 Using a grid search, train the LSTM model and predict the one-day ahead forecast for the validation set. Select the combination of hyperparameters that result in the lowest MSE for the validation set. Plot the training data and forecast and plot the validation set and the forecast.
+
+```{r LSTM_func}
+##### LSTM Fit Function
+
+lstm_fit_func <- function(hyperparams,
+                          data_lists){
+    # Set seed for reproducibility
+    set_random_seed(seed = 43675)
+    dim_1 <- dim(data_lists$x_train_array)[2:3]
+    dim_2 <- dim(data_lists$y_train_array)[2]
+    # Create Keras Sequential Model
+    lstm_model <- keras_model_sequential()
+    # Add Layers
+    lstm_model %>%
+        layer_lstm(units = hyperparams$lstm_units, # size of the layer
+                   input_shape = dim_1,
+                   # batch size, timesteps, features
+                   return_sequences = hyperparams$return_sequences,
+                   stateful = FALSE) %>%
+        layer_dropout(rate = hyperparams$dropout_rate)
+    if(hyperparams$lstm_layers == 2 & hyperparams$return_sequences == TRUE)
+    {
+        lstm_model %>%
+        layer_lstm(units = hyperparams$lstm_units, # size of the layer
+                   input_shape = dim_1,
+                   # batch size, timesteps, features
+                   return_sequences = FALSE,
+                   stateful = FALSE) %>%
+                layer_dropout(rate = hyperparams$dropout_rate)
+    }
+        lstm_model %>%
+        layer_dense(units = dim_2)
+    # Set model parameters
+    lstm_model %>%
+        compile(loss = hyperparams$loss, optimizer = hyperparams$optimizer, metrics = hyperparams$loss)
+    # Fit Model
+    lstm_model %>%
+        fit(
+        x = data_lists$x_train_array,
+        y = data_lists$y_train_array,
+        epochs = hyperparams$epochs,
+        verbose = 1,
+        shuffle = FALSE)
+    # Predict training data
+    lstm_train_forecast <- lstm_model %>%
+        predict(data_lists$x_train_array) %>% t(.) %>% c(.)
+    # Predict power
+    lstm_val_forecast <- lstm_model %>%
+        predict(data_lists$x_val_array) %>% t(.) %>% c(.)
+    # Store Results
+    return(list(train = lstm_train_forecast, val = lstm_val_forecast))
+}
+
+# Hyperparameter tuning wrapper
+
+hyp_tune_func <- function(data_lists = data_lists,
+                          data_actual = data_val,
+                          hyperparams = hyp,
+                          fit_func,
+                          type){
+    # Run iteratively through hyperparameter grid
+    hyp_fit <- map(hyperparams, fit_func, data_lists)
+
+    hyp_res <- map(hyp_fit, ~data_actual %>% mutate(pred = .x$val) %>%
+                       summarise(mean((pred - y)^2, na.rm = TRUE)) %>% .[[1]])
+    # Store Results
+    res <- map2_df(hyperparams, hyp_res, ~ .x %>%
+                       as_tibble() %>%
+                       mutate(mse = .y))
+    res
+}
+
+# Performance and Plotting Function
+
+perf_plot <- function(data_lists = data_lists,
+                        data_train = data_train,
+                        data_val = data_val,
+                        hyperparams = hyp,
+                        fit_func,
+                        type,
+                        train_title,
+                        val_title
+                        ){
+
+    hyp_fit <- fit_func(hyperparams, data_lists)
+
+
+    train_err <- data_train %>% mutate(pred = hyp_fit$train) %>%
+                     summarise(mean((pred - y)^2, na.rm = TRUE)) %>% .[[1]]
+
+    hyp_res <- data_val %>% mutate(pred = hyp_fit$val) %>%
+                     summarise(mean((pred - y)^2, na.rm = TRUE)) %>% .[[1]]
+    # Store Results
+
+    train_res <- hyperparams %>%
+      as_tibble() %>%
+      mutate(mse = train_err)
+
+    res <- hyperparams %>%
+      as_tibble() %>%
+      mutate(mse = hyp_res)
+
+    # Plot training and validation forecasts
+
+    train_forecast <- data_train %>% mutate(pred = hyp_fit$train)
+
+    train_plot <- vol_plot_func(data_train, train_forecast, title = train_title)
+
+    val_forecast <- data_val %>% mutate(sigma = hyp_fit$val)
+
+    val_plot <- vol_plot_func(data_val, val_forecast, title = val_title)
+
+    return(list(train_plot = train_plot, val_plot = val_plot, performance = res, training_error = train_res))
+}
+```
+
 
 ```{r lstm_one_day, message=FALSE}
 #### Fit the best univariate LSTM according to the results of 
@@ -263,6 +572,32 @@ Load in the support vector machine package. Create the list of arrays where the 
 
 ## One Day Forecast
 
+```{r SVR_func}
+#### Function for SVR data wrangling
+
+data_svr_wrangle <- function(data_array = data_array){
+
+        # Create training list for each forcast ahead
+        x_train <- data_array$x_train_array %>% as_tibble()
+        if(dim(data_array$y_train_array)[2] > 1){y_train <- data_array$y_train_array[,,1] %>% split(., rep(1:ncol(.), each = nrow(.)))
+        train <- map(y_train, ~cbind(Y=.x, x_train))
+        } else {train <- list(cbind(Y = data_array$y_train_array[,,1], x_train))}
+
+
+        # Create validation list for each forecast ahead
+
+        x_val <- data_array$x_val_array %>% as_tibble()
+        if(dim(data_array$y_val_array)[2] > 1){y_train <- data_array$y_val_array[,,1] %>% split(., rep(1:ncol(.), each = nrow(.)))
+        validation <- map(y_val, ~cbind(Y=.x, x_val))
+        } else {validation <- list(cbind(Y = data_array$y_val_array[,,1], x_val))}
+
+        return(list(train_list = train, val_list = validation))
+}
+
+
+```
+
+
 ```{r svr_data}
 
 library(liquidSVM)
@@ -281,6 +616,33 @@ data_svr_lists <- data_svr_wrangle(data_array = data_svr_array)
 ```
 
 Create a grid of hyperparameters. The gamma and lambda are tuned over. Using a grid-search, fit the SVM to the training data and forecast the one-day ahead volatility from the validation set.
+
+```{r svr_fit_func}
+# Support Vector Regression fit function
+
+svr_fit_func <- function(hyperparams, data_lists){
+    set.seed(12439078)
+    SVR_fit_list <- list()
+    SVR_pred_train <- list()
+    SVR_pred_val <- list()
+    for(i in 1:length(data_lists$train_list)){
+        SVR_fit_list[[i]] <- svmRegression(x = data_lists$train_list[[i]][,-1],
+                                           y = data_lists$train_list[[i]][,"Y"],
+                                           gamma = hyperparams$gamma,
+                                           lambda = hyperparams$lambda)
+
+        SVR_pred_train[[i]] <- predict(SVR_fit_list[[i]], data_lists$train_list[[i]][,-1])
+        SVR_pred_val[[i]] <- predict(SVR_fit_list[[i]], data_lists$val_list[[i]][,-1])
+        print(paste(i,"DONE!!"))
+    }
+
+    SVR_train_df <- SVR_pred_train %>%  do.call("cbind", .) %>% t(.) %>% c(.)
+    SVR_val_df <- SVR_pred_val %>%  do.call("cbind", .) %>% t(.) %>% c(.)
+    print("DONE!!")
+    list(train = SVR_train_df, val = SVR_val_df)
+}
+```
+
 
 ```{r svr_tune}
 # Tune SVR regressions
