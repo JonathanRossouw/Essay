@@ -18,8 +18,8 @@ gc() # garbage collection - It can be useful to call gc after a large object has
 ```
 
     ##          used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-    ## Ncells 422364 22.6     873292 46.7         NA   666922 35.7
-    ## Vcells 804317  6.2    8388608 64.0     102400  1824018 14.0
+    ## Ncells 422372 22.6     873314 46.7         NA   666925 35.7
+    ## Vcells 804485  6.2    8388608 64.0     102400  1823999 14.0
 
 ``` r
 library(tidyverse)
@@ -559,8 +559,8 @@ lstm_perf <- perf_plot(data_lists = data_lstm_lists,
                        hyperparams = best_lstm_tune,
                        fit_func = lstm_fit_func,
                        type = "lstm",
-                       train_title = "LSTM Train Plot",
-                       val_title = "LSTM Validation Plot")
+                       train_title = "LSTM One-Day Ahead Train Plot",
+                       val_title = "LSTM One-Day Ahead Validation Plot")
 
 lstm_perf$train_plot
 ```
@@ -659,8 +659,8 @@ lstm_perf_3 <- perf_plot(data_lists = data_lstm_lists_3,
                        hyperparams = best_lstm_tune_3,
                        fit_func = lstm_fit_func,
                        type = "lstm",
-                       train_title = "LSTM Train Plot",
-                       val_title = "LSTM Validation Plot")
+                       train_title = "LSTMThree-Day Ahead Train Plot",
+                       val_title = "LSTM Three-Day Ahead Validation Plot")
 
 lstm_perf_3$train_plot
 ```
@@ -809,8 +809,8 @@ svr_perf <- perf_plot(data_lists = data_svr_lists,
                       hyperparams = best_tune_svr[1,],
                       fit_func = svr_fit_func,
                       type = "svr",
-                      train_title = "SVR Train Plot",
-                      val_title = "SVR Validation Plot")
+                      train_title = "SVR One-Day Ahead Train Plot",
+                      val_title = "SVR One-Day Ahead Validation Plot")
 ```
 
     ## [1] "1 DONE!!"
@@ -908,8 +908,8 @@ svr_perf_3 <- perf_plot(data_lists = data_svr_lists_3,
                       hyperparams = best_tune_svr_3[1,],
                       fit_func = svr_fit_func,
                       type = "svr",
-                      train_title = "SVR Train Plot",
-                      val_title = "SVR Validation Plot")
+                      train_title = "SVR Three-Day Ahead Train Plot",
+                      val_title = "SVR Three-Day Ahead Validation Plot")
 ```
 
     ## [1] "1 DONE!!"
@@ -969,8 +969,8 @@ lstm_perf_test <- perf_plot(data_lists = data_lstm_lists_test,
                        hyperparams = best_lstm_tune,
                        fit_func = lstm_fit_func,
                        type = "lstm",
-                       train_title = "LSTM Full Train Plot",
-                       val_title = "LSTM Test Plot")
+                       train_title = "LSTM One-Day Ahead Full Train Plot",
+                       val_title = "LSTM One-Day Ahead Test Plot")
 
 lstm_perf_test$train_plot
 ```
@@ -1006,52 +1006,60 @@ lstm_perf_test$performance
 ## Three Day Forecasts
 
 ``` r
-### Create LSTM Data Arrays
-data_lstm_lists_3_test <- data_array_func(data = data_train_full_scaled, 
-                              val = data_test_scaled,
-                              initial = 2,
-                              assess = 1,
-                              skip = 0, 
-                              type = "three_day")
+# Create list of training and validation sets
 
-# Fit Model and Evaluate Performance
+data_svr_array_3_test <- data_array_func(data = data_train_full_scaled,
+                                  val = data_test_scaled,
+                                  initial = 2,
+                                  assess = 1,
+                                  skip = 0, 
+                                  type = "three_day")
 
-lstm_perf_3_test <- perf_plot(data_lists = data_lstm_lists_3_test,
+data_svr_lists_3_test <- data_svr_wrangle(data_array = data_svr_array_3_test)
+
+# Plot performance
+svr_perf_3_test <- perf_plot(data_lists = data_svr_lists_3_test,
                          data_train = data_train_full_scaled %>% tail(-4),
                          data_val = data_test_scaled %>% tail(-4), 
-                       hyperparams = best_lstm_tune_3,
-                       fit_func = lstm_fit_func,
-                       type = "lstm",
-                       train_title = "LSTM Full Train Plot",
-                       val_title = "LSTM Test Plot")
+                      hyperparams = best_tune_svr_3[1,],
+                      fit_func = svr_fit_func,
+                      type = "svr",
+                      train_title = "SVR Three-Day Ahead Full Training Plot",
+                      val_title = "SVR Three-Day Ahead Test Plot")
+```
 
-lstm_perf_3_test$train_plot
+    ## Warning in selectSVMs(model): Solution may not be optimal: try training again
+    ## using min_gamma=0.04
+
+    ## [1] "1 DONE!!"
+    ## [1] "DONE!!"
+
+``` r
+svr_perf_3_test$train_plot
 ```
 
 ![](README_files/figure-markdown_github/test_three_day-1.png)
 
 ``` r
-lstm_perf_3_test$training_error
+svr_perf_3_test$training_error
 ```
 
-    ## # A tibble: 1 × 8
-    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
-    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
-    ## 1 mse   adam          20           2         40 TRUE                        0
-    ## # … with 1 more variable: mse <dbl>
+    ## # A tibble: 1 × 3
+    ##    gamma lambda     mse
+    ##    <dbl>  <dbl>   <dbl>
+    ## 1 0.0821 0.0821 0.00372
 
 ``` r
-lstm_perf_3_test$val_plot
+svr_perf_3_test$val_plot
 ```
 
 ![](README_files/figure-markdown_github/test_three_day-2.png)
 
 ``` r
-lstm_perf_3_test$performance
+svr_perf_3_test$performance
 ```
 
-    ## # A tibble: 1 × 8
-    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
-    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
-    ## 1 mse   adam          20           2         40 TRUE                        0
-    ## # … with 1 more variable: mse <dbl>
+    ## # A tibble: 1 × 3
+    ##    gamma lambda    mse
+    ##    <dbl>  <dbl>  <dbl>
+    ## 1 0.0821 0.0821 0.0523

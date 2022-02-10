@@ -492,8 +492,8 @@ lstm_perf <- perf_plot(data_lists = data_lstm_lists,
                        hyperparams = best_lstm_tune,
                        fit_func = lstm_fit_func,
                        type = "lstm",
-                       train_title = "LSTM Train Plot",
-                       val_title = "LSTM Validation Plot")
+                       train_title = "LSTM One-Day Ahead Train Plot",
+                       val_title = "LSTM One-Day Ahead Validation Plot")
 
 lstm_perf$train_plot
 lstm_perf$training_error
@@ -559,8 +559,8 @@ lstm_perf_3 <- perf_plot(data_lists = data_lstm_lists_3,
                        hyperparams = best_lstm_tune_3,
                        fit_func = lstm_fit_func,
                        type = "lstm",
-                       train_title = "LSTM Train Plot",
-                       val_title = "LSTM Validation Plot")
+                       train_title = "LSTMThree-Day Ahead Train Plot",
+                       val_title = "LSTM Three-Day Ahead Validation Plot")
 
 lstm_perf_3$train_plot
 lstm_perf_3$training_error
@@ -685,8 +685,8 @@ svr_perf <- perf_plot(data_lists = data_svr_lists,
                       hyperparams = best_tune_svr[1,],
                       fit_func = svr_fit_func,
                       type = "svr",
-                      train_title = "SVR Train Plot",
-                      val_title = "SVR Validation Plot")
+                      train_title = "SVR One-Day Ahead Train Plot",
+                      val_title = "SVR One-Day Ahead Validation Plot")
 svr_perf$train_plot
 svr_perf$training_error
 svr_perf$val_plot
@@ -753,8 +753,8 @@ svr_perf_3 <- perf_plot(data_lists = data_svr_lists_3,
                       hyperparams = best_tune_svr_3[1,],
                       fit_func = svr_fit_func,
                       type = "svr",
-                      train_title = "SVR Train Plot",
-                      val_title = "SVR Validation Plot")
+                      train_title = "SVR Three-Day Ahead Train Plot",
+                      val_title = "SVR Three-Day Ahead Validation Plot")
 svr_perf_3$train_plot
 svr_perf_3$training_error
 svr_perf_3$val_plot
@@ -782,8 +782,8 @@ lstm_perf_test <- perf_plot(data_lists = data_lstm_lists_test,
                        hyperparams = best_lstm_tune,
                        fit_func = lstm_fit_func,
                        type = "lstm",
-                       train_title = "LSTM Full Train Plot",
-                       val_title = "LSTM Test Plot")
+                       train_title = "LSTM One-Day Ahead Full Train Plot",
+                       val_title = "LSTM One-Day Ahead Test Plot")
 
 lstm_perf_test$train_plot
 lstm_perf_test$training_error
@@ -795,29 +795,29 @@ lstm_perf_test$performance
 ## Three Day Forecasts
 
 ```{r test_three_day}
-### Create LSTM Data Arrays
-data_lstm_lists_3_test <- data_array_func(data = data_train_full_scaled, 
-                              val = data_test_scaled,
-                              initial = 2,
-                              assess = 1,
-                              skip = 0, 
-                              type = "three_day")
+# Create list of training and validation sets
 
-# Fit Model and Evaluate Performance
+data_svr_array_3_test <- data_array_func(data = data_train_full_scaled,
+                                  val = data_test_scaled,
+                                  initial = 2,
+                                  assess = 1,
+                                  skip = 0, 
+                                  type = "three_day")
 
-lstm_perf_3_test <- perf_plot(data_lists = data_lstm_lists_3_test,
+data_svr_lists_3_test <- data_svr_wrangle(data_array = data_svr_array_3_test)
+
+# Plot performance
+svr_perf_3_test <- perf_plot(data_lists = data_svr_lists_3_test,
                          data_train = data_train_full_scaled %>% tail(-4),
                          data_val = data_test_scaled %>% tail(-4), 
-                       hyperparams = best_lstm_tune_3,
-                       fit_func = lstm_fit_func,
-                       type = "lstm",
-                       train_title = "LSTM Full Train Plot",
-                       val_title = "LSTM Test Plot")
-
-lstm_perf_3_test$train_plot
-lstm_perf_3_test$training_error
-lstm_perf_3_test$val_plot
-lstm_perf_3_test$performance
-
+                      hyperparams = best_tune_svr_3[1,],
+                      fit_func = svr_fit_func,
+                      type = "svr",
+                      train_title = "SVR Three-Day Ahead Full Training Plot",
+                      val_title = "SVR Three-Day Ahead Test Plot")
+svr_perf_3_test$train_plot
+svr_perf_3_test$training_error
+svr_perf_3_test$val_plot
+svr_perf_3_test$performance
 ```
 
