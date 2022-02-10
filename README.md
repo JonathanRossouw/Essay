@@ -18,8 +18,8 @@ gc() # garbage collection - It can be useful to call gc after a large object has
 ```
 
     ##          used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-    ## Ncells 422366 22.6     873307 46.7         NA   666905 35.7
-    ## Vcells 804291  6.2    8388608 64.0     102400  1824459 14.0
+    ## Ncells 422364 22.6     873292 46.7         NA   666922 35.7
+    ## Vcells 804317  6.2    8388608 64.0     102400  1824018 14.0
 
 ``` r
 library(tidyverse)
@@ -947,7 +947,61 @@ svr_perf_3$performance
 
 # Test
 
+Combine training and validation set. Fit model using the best
+combination of hyperparameters. Forecast using the test set and
+determine performance.
+
 ## One Day Forecasts
+
+``` r
+### Create LSTM Data Arrays
+data_lstm_lists_test <- data_array_func(data = data_train_full_scaled, 
+                              val = data_test_scaled,
+                              initial = 1, 
+                              assess = 1, 
+                              skip = 0, 
+                              type = "one_day")
+
+# Fit Model and Evaluate Performance
+lstm_perf_test <- perf_plot(data_lists = data_lstm_lists_test,
+                       data_val = data_test_scaled %>% tail(-1), 
+                       data_train = data_train_full_scaled %>% tail(-1),
+                       hyperparams = best_lstm_tune,
+                       fit_func = lstm_fit_func,
+                       type = "lstm",
+                       train_title = "LSTM Full Train Plot",
+                       val_title = "LSTM Test Plot")
+
+lstm_perf_test$train_plot
+```
+
+![](README_files/figure-markdown_github/test_one_day-1.png)
+
+``` r
+lstm_perf_test$training_error
+```
+
+    ## # A tibble: 1 × 8
+    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
+    ## # … with 1 more variable: mse <dbl>
+
+``` r
+lstm_perf_test$val_plot
+```
+
+![](README_files/figure-markdown_github/test_one_day-2.png)
+
+``` r
+lstm_perf_test$performance
+```
+
+    ## # A tibble: 1 × 8
+    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
+    ## # … with 1 more variable: mse <dbl>
 
 ## Three Day Forecasts
 

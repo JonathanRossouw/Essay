@@ -763,8 +763,10 @@ svr_perf_3$performance
 
 # Test
 
+Combine training and validation set. Fit model using the best combination of hyperparameters. Forecast using the test set and determine performance.
+
 ## One Day Forecasts
-```{r test_one_day, eval=FALSE, include=FALSE}
+```{r test_one_day}
 ### Create LSTM Data Arrays
 data_lstm_lists_test <- data_array_func(data = data_train_full_scaled, 
                               val = data_test_scaled,
