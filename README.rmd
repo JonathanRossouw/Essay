@@ -16,6 +16,9 @@ gc() # garbage collection - It can be useful to call gc after a large object has
 library(tidyverse)
 pacman::p_load(rugarch, cowplot, tbl2xts, fmxdat, ggplot2, sugrrants, kableExtra, rsample, glue, tictoc)
 list.files('code/', full.names = T, recursive = T) %>% .[grepl('.R', .)] %>% .[!grepl('Old_code', .)] %>% as.list() %>% walk(~source(.))
+
+# Set whether cached hyperparameter tuning results are used
+cache <- TRUE
 ```
 
 
@@ -200,8 +203,7 @@ vol_plot_func <- function(data = data, fit = garch_fit, title){
 
 ```
 
-
-
+Fit GARCH Models
 ```{r garch}
 
 # Test for GARCH effects
@@ -269,7 +271,7 @@ Wrangle data for LSTM. Use min-max scaling on series. Store min-max values for l
 
 Create lists of arrays with correct structure for LSTM model. The previous two days return and two days volatility are used as inputs with a single day's volatility being predicted.
 
-```{r}
+```{r data_array_func}
 ###### Simple LSTM Array Function
 
 data_array_func <- function(data, val, initial, assess, skip, type){
@@ -334,26 +336,15 @@ Create grid of hyperparameters for tuning. Epochs, number of LSTM layers, number
 
 ```{r hyperparameter-grid}
 ##### Set hyperparameter grid
-# lstm_hyp <- expand.grid(loss = c("mse"),
-#                         optimizer = c("adam"),
-#                         epochs = c(10, 20, 50, 100),
-#                         lstm_layers = c(1, 2),
-#                         lstm_units = c(10, 20, 40),
-#                         return_sequences = c(TRUE, FALSE),
-#                         dropout_rate = c(0, 0.1)) %>%
-#     filter(!(return_sequences == TRUE & lstm_layers == 1)) %>%
-#     split(., seq(nrow(.)))
-
-lstm_hyp <- expand.grid(loss = c("mse"),
+lstm_hyp <- expand.grid(loss = c("mse", "mae"),
                         optimizer = c("adam"),
-                        epochs = c(20),
-                        lstm_layers = c(2),
-                        lstm_units = c(10),
-                        return_sequences = c(FALSE),
-                        dropout_rate = c(0)) %>%
+                        epochs = c(10, 20, 50),
+                        lstm_layers = c(1, 2),
+                        lstm_units = c(10, 20, 40),
+                        return_sequences = c(TRUE, FALSE),
+                        dropout_rate = c(0, 0.1)) %>%
     filter(!(return_sequences == TRUE & lstm_layers == 1)) %>%
     split(., seq(nrow(.)))
-
 ```
 
 Using a grid search, train the LSTM model and predict the one-day ahead forecast for the validation set. Select the combination of hyperparameters that result in the lowest MSE for the validation set. Plot the training data and forecast and plot the validation set and the forecast.
@@ -477,14 +468,20 @@ perf_plot <- function(data_lists = data_lists,
 ```{r lstm_one_day, message=FALSE}
 #### Fit the best univariate LSTM according to the results of 
 # the hyperparameter tuning
-
+if(!cache){
+  tic()
 lstm_fit <- hyp_tune_func(data_lists = data_lstm_lists,
                          data_actual = data_val_scaled %>% tail(-1), 
                          hyperparams = lstm_hyp, 
                          fit_func = lstm_fit_func,
                          type = "lstm")
-
+toc()
 write.csv(lstm_fit, "cache/lstm_tune")
+}
+
+if(cache){
+  lstm_fit <- read.csv("cache/lstm_tune", row.names = 1) %>% as_tibble()
+}
 
 best_lstm_tune <- lstm_fit %>%  
   filter(mse == min(mse))
@@ -522,13 +519,13 @@ Create grid of hyperparameters for tuning. Epochs, number of LSTM layers, number
 
 ```{r hyperparameter-grid_3}
 ##### Set hyperparameter grid
-lstm_hyp_3 <- expand.grid(loss = c("mae"),
+lstm_hyp_3 <- expand.grid(loss = c("mse", "mae"),
                         optimizer = c("adam"),
-                        epochs = c(20),
-                        lstm_layers = c(2),
-                        lstm_units = c(10),
-                        return_sequences = c(FALSE),
-                        dropout_rate = c(0.1)) %>%
+                        epochs = c(10, 20, 50),
+                        lstm_layers = c(1, 2),
+                        lstm_units = c(10, 20, 40),
+                        return_sequences = c(TRUE, FALSE),
+                        dropout_rate = c(0, 0.1)) %>%
     filter(!(return_sequences == TRUE & lstm_layers == 1)) %>%
     split(., seq(nrow(.)))
 ```
@@ -538,14 +535,20 @@ Using a grid search, train the LSTM model and predict the three-day ahead foreca
 ```{r lstm_3}
 #### Fit the best univariate LSTM according to the results of 
 # the hyperparameter tuning
-
+if(!cache){
+  tic()
 lstm_fit_3 <- hyp_tune_func(data_lists = data_lstm_lists_3,
                          data_actual = data_val_scaled %>% tail(-4), 
                          hyperparams = lstm_hyp_3, 
                          fit_func = lstm_fit_func,
                          type = "lstm")
+write.csv(lstm_fit, "cache/lstm_tune_3")
+toc()
+}
 
-write.csv(lstm_fit, "cache/lstm_tune")
+if(cache){
+  lstm_fit_3 <- read.csv("cache/lstm_tune_3", row.names = 1) %>% as_tibble()
+}
 
 best_lstm_tune_3 <- lstm_fit_3 %>%  
   filter(mse == min(mse))
@@ -560,9 +563,10 @@ lstm_perf_3 <- perf_plot(data_lists = data_lstm_lists_3,
                        val_title = "LSTM Validation Plot")
 
 lstm_perf_3$train_plot
+lstm_perf_3$training_error
 lstm_perf_3$val_plot
 lstm_perf_3$performance
-lstm_perf_3$training_error
+
 
 ```
 
@@ -646,20 +650,30 @@ svr_fit_func <- function(hyperparams, data_lists){
 
 ```{r svr_tune}
 # Tune SVR regressions
-svr_hyp <- expand.grid(gamma = c(exp(-2.5)),
-                       lambda = c(exp(-2.5))) %>%
+svr_hyp <- expand.grid(gamma = c(exp(seq(-2.5, 8, 1.5))),
+                       lambda = c(exp(seq(-2.5, 8, 1.5)))) %>%
     split(., seq(nrow(.)))
-
-svr_fit <- hyp_tune_func(data_lists = data_svr_lists,
-                         data_actual = data_val_scaled %>% tail(-1),
-                         hyperparams = svr_hyp,
-                         fit_func = svr_fit_func, 
-                         type = "svr")
 ```
 
 Select the combination of hyperparameters that resulted in the lowest MSE of the validation set. Create plots of the training data and forecasts and the valdiation data and forecasts. Determine forcast performance with MSE.
 
 ```{r svr_eval_perf}
+
+if(!cache){
+  tic()
+  svr_fit <- hyp_tune_func(data_lists = data_svr_lists,
+                         data_actual = data_val_scaled %>% tail(-1),
+                         hyperparams = svr_hyp,
+                         fit_func = svr_fit_func, 
+                         type = "svr")
+  write.csv(svr_fit, "cache/svr_tune")
+  toc()
+}
+
+if(cache){
+  svr_fit <- read.csv("cache/svr_tune", row.names = 1) %>% as_tibble()
+}
+
 # Best hyperparameters
 
 best_tune_svr <- svr_fit %>% filter(mse == min(mse))
@@ -700,21 +714,34 @@ Create a grid of hyperparameters. The gamma and lambda are tuned over. Using a g
 
 ```{r svr_3_tune}
 # Tune SVR regressions
-svr_hyp_3 <- expand.grid(gamma = c(exp(-2.5)),
-                       lambda = c(exp(-2.5))) %>%
+svr_hyp_3 <- expand.grid(gamma = c(exp(seq(-2.5, 8, 1.5))),
+                       lambda = c(exp(seq(-2.5, 8, 1.5)))) %>%
     split(., seq(nrow(.)))
 
-svr_fit_3 <- hyp_tune_func(data_lists = data_svr_lists_3,
-                         data_actual = data_val_scaled %>% tail(-4),
-                         hyperparams = svr_hyp_3,
-                         fit_func = svr_fit_func, 
-                         type = "svr")
+
 
 ```
 
 Select the combination of hyperparameters that resulted in the lowest MSE of the validation set. Create plots of the training data and forecasts and the validation data and forecasts. Determine forecast performance with MSE.
 
 ```{r svr_3_eval_perf}
+
+
+if(!cache){
+  tic()
+  svr_fit_3 <- hyp_tune_func(data_lists = data_svr_lists_3,
+                         data_actual = data_val_scaled %>% tail(-4),
+                         hyperparams = svr_hyp_3,
+                         fit_func = svr_fit_func, 
+                         type = "svr")
+  write.csv(svr_fit_3, "cache/svr_tune_3")
+  toc()
+}
+
+if(cache){
+  svr_fit_3 <- read.csv("cache/svr_tune_3", row.names = 1) %>% as_tibble()
+}
+
 # Best hyperparameters
 
 best_tune_svr_3 <- svr_fit_3 %>% filter(mse == min(mse))
@@ -736,62 +763,59 @@ svr_perf_3$performance
 
 # Test
 
-```{r test_arrays, eval=FALSE, include=FALSE}
+## One Day Forecasts
+```{r test_one_day, eval=FALSE, include=FALSE}
+### Create LSTM Data Arrays
+data_lstm_lists_test <- data_array_func(data = data_train_full_scaled, 
+                              val = data_test_scaled,
+                              initial = 1, 
+                              assess = 1, 
+                              skip = 0, 
+                              type = "one_day")
 
-# Create list of training and validation sets
+# Fit Model and Evaluate Performance
+lstm_perf_test <- perf_plot(data_lists = data_lstm_lists_test,
+                       data_val = data_test_scaled %>% tail(-1), 
+                       data_train = data_train_full_scaled %>% tail(-1),
+                       hyperparams = best_lstm_tune,
+                       fit_func = lstm_fit_func,
+                       type = "lstm",
+                       train_title = "LSTM Full Train Plot",
+                       val_title = "LSTM Test Plot")
 
-data_svr_array_3 <- data_array_func(data = data_train_scaled,
-                                  val = data_val_scaled,
-                                  initial = 1,
-                                  assess = 1,
-                                  skip = 0, 
-                                  type = "one_day")
-
-data_svr_lists_3 <- data_svr_wrangle(data_array = data_svr_array_3)
-
-
-# Create list of training and validation sets
-
-data_svr_array_3 <- data_array_func(data = data_train_scaled,
-                                  val = data_val_scaled,
-                                  initial = 2,
-                                  assess = 1,
-                                  skip = 0, 
-                                  type = "three_day")
-
-data_svr_lists_3 <- data_svr_wrangle(data_array = data_svr_array_3)
-
+lstm_perf_test$train_plot
+lstm_perf_test$training_error
+lstm_perf_test$val_plot
+lstm_perf_test$performance
 ```
 
-```{r test_fit, eval=FALSE, include=FALSE}
-lstm_perf <- perf_plot(data_lists = data_lstm_lists_3,
-                         data_train = data_train_scaled %>% tail(-4),
-                         data_val = data_val_scaled %>% tail(-4), 
+
+## Three Day Forecasts
+
+```{r test_three_day}
+### Create LSTM Data Arrays
+data_lstm_lists_3_test <- data_array_func(data = data_train_full_scaled, 
+                              val = data_test_scaled,
+                              initial = 2,
+                              assess = 1,
+                              skip = 0, 
+                              type = "three_day")
+
+# Fit Model and Evaluate Performance
+
+lstm_perf_3_test <- perf_plot(data_lists = data_lstm_lists_3_test,
+                         data_train = data_train_full_scaled %>% tail(-4),
+                         data_val = data_test_scaled %>% tail(-4), 
                        hyperparams = best_lstm_tune_3,
                        fit_func = lstm_fit_func,
                        type = "lstm",
-                       train_title = "LSTM Train Plot",
-                       val_title = "LSTM Validation Plot")
+                       train_title = "LSTM Full Train Plot",
+                       val_title = "LSTM Test Plot")
 
-lstm_perf_3$train_plot
-lstm_perf_3$val_plot
-lstm_perf_3$performance
-lstm_perf_3$training_error
+lstm_perf_3_test$train_plot
+lstm_perf_3_test$training_error
+lstm_perf_3_test$val_plot
+lstm_perf_3_test$performance
 
-
-# Plot performance
-svr_perf <- perf_plot(data_lists = data_svr_lists,
-                      data_train = data_train_scaled %>% tail(-1),
-                      data_val = data_val_scaled %>% tail(-1), 
-                      hyperparams = best_tune_svr[1,],
-                      fit_func = svr_fit_func,
-                      type = "svr",
-                      train_title = "SVR Train Plot",
-                      val_title = "SVR Validation Plot")
-svr_perf$train_plot
-svr_perf$training_error
-svr_perf$val_plot
-svr_perf$performance
 ```
-
 

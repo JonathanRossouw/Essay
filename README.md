@@ -18,13 +18,16 @@ gc() # garbage collection - It can be useful to call gc after a large object has
 ```
 
     ##          used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-    ## Ncells 422428 22.6     873475 46.7         NA   666922 35.7
-    ## Vcells 804076  6.2    8388608 64.0     102400  1824018 14.0
+    ## Ncells 422366 22.6     873307 46.7         NA   666905 35.7
+    ## Vcells 804291  6.2    8388608 64.0     102400  1824459 14.0
 
 ``` r
 library(tidyverse)
 pacman::p_load(rugarch, cowplot, tbl2xts, fmxdat, ggplot2, sugrrants, kableExtra, rsample, glue, tictoc)
 list.files('code/', full.names = T, recursive = T) %>% .[grepl('.R', .)] %>% .[!grepl('Old_code', .)] %>% as.list() %>% walk(~source(.))
+
+# Set whether cached hyperparameter tuning results are used
+cache <- TRUE
 ```
 
 # Data Split
@@ -208,6 +211,8 @@ vol_plot_func <- function(data = data, fit = garch_fit, title){
 
 }
 ```
+
+Fit GARCH Models
 
 ``` r
 # Test for GARCH effects
@@ -396,23 +401,13 @@ and the dropout rate are used as hyperparameters.
 
 ``` r
 ##### Set hyperparameter grid
-# lstm_hyp <- expand.grid(loss = c("mse"),
-#                         optimizer = c("adam"),
-#                         epochs = c(10, 20, 50, 100),
-#                         lstm_layers = c(1, 2),
-#                         lstm_units = c(10, 20, 40),
-#                         return_sequences = c(TRUE, FALSE),
-#                         dropout_rate = c(0, 0.1)) %>%
-#     filter(!(return_sequences == TRUE & lstm_layers == 1)) %>%
-#     split(., seq(nrow(.)))
-
-lstm_hyp <- expand.grid(loss = c("mse"),
+lstm_hyp <- expand.grid(loss = c("mse", "mae"),
                         optimizer = c("adam"),
-                        epochs = c(20),
-                        lstm_layers = c(2),
-                        lstm_units = c(10),
-                        return_sequences = c(FALSE),
-                        dropout_rate = c(0)) %>%
+                        epochs = c(10, 20, 50),
+                        lstm_layers = c(1, 2),
+                        lstm_units = c(10, 20, 40),
+                        return_sequences = c(TRUE, FALSE),
+                        dropout_rate = c(0, 0.1)) %>%
     filter(!(return_sequences == TRUE & lstm_layers == 1)) %>%
     split(., seq(nrow(.)))
 ```
@@ -540,14 +535,20 @@ perf_plot <- function(data_lists = data_lists,
 ``` r
 #### Fit the best univariate LSTM according to the results of 
 # the hyperparameter tuning
-
+if(!cache){
+  tic()
 lstm_fit <- hyp_tune_func(data_lists = data_lstm_lists,
                          data_actual = data_val_scaled %>% tail(-1), 
                          hyperparams = lstm_hyp, 
                          fit_func = lstm_fit_func,
                          type = "lstm")
-
+toc()
 write.csv(lstm_fit, "cache/lstm_tune")
+}
+
+if(cache){
+  lstm_fit <- read.csv("cache/lstm_tune", row.names = 1) %>% as_tibble()
+}
 
 best_lstm_tune <- lstm_fit %>%  
   filter(mse == min(mse))
@@ -572,8 +573,8 @@ lstm_perf$training_error
 
     ## # A tibble: 1 × 8
     ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
-    ##   <fct> <fct>      <dbl>       <dbl>      <dbl> <lgl>                   <dbl>
-    ## 1 mse   adam          20           2         10 FALSE                       0
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
     ## # … with 1 more variable: mse <dbl>
 
 ``` r
@@ -588,8 +589,8 @@ lstm_perf$performance
 
     ## # A tibble: 1 × 8
     ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
-    ##   <fct> <fct>      <dbl>       <dbl>      <dbl> <lgl>                   <dbl>
-    ## 1 mse   adam          20           2         10 FALSE                       0
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
     ## # … with 1 more variable: mse <dbl>
 
 ## Three Day Forecast
@@ -614,13 +615,13 @@ and the dropout rate are used as hyperparameters.
 
 ``` r
 ##### Set hyperparameter grid
-lstm_hyp_3 <- expand.grid(loss = c("mae"),
+lstm_hyp_3 <- expand.grid(loss = c("mse", "mae"),
                         optimizer = c("adam"),
-                        epochs = c(20),
-                        lstm_layers = c(2),
-                        lstm_units = c(10),
-                        return_sequences = c(FALSE),
-                        dropout_rate = c(0.1)) %>%
+                        epochs = c(10, 20, 50),
+                        lstm_layers = c(1, 2),
+                        lstm_units = c(10, 20, 40),
+                        return_sequences = c(TRUE, FALSE),
+                        dropout_rate = c(0, 0.1)) %>%
     filter(!(return_sequences == TRUE & lstm_layers == 1)) %>%
     split(., seq(nrow(.)))
 ```
@@ -634,14 +635,20 @@ forecast.
 ``` r
 #### Fit the best univariate LSTM according to the results of 
 # the hyperparameter tuning
-
+if(!cache){
+  tic()
 lstm_fit_3 <- hyp_tune_func(data_lists = data_lstm_lists_3,
                          data_actual = data_val_scaled %>% tail(-4), 
                          hyperparams = lstm_hyp_3, 
                          fit_func = lstm_fit_func,
                          type = "lstm")
+write.csv(lstm_fit, "cache/lstm_tune_3")
+toc()
+}
 
-write.csv(lstm_fit, "cache/lstm_tune")
+if(cache){
+  lstm_fit_3 <- read.csv("cache/lstm_tune_3", row.names = 1) %>% as_tibble()
+}
 
 best_lstm_tune_3 <- lstm_fit_3 %>%  
   filter(mse == min(mse))
@@ -661,6 +668,16 @@ lstm_perf_3$train_plot
 ![](README_files/figure-markdown_github/lstm_3-1.png)
 
 ``` r
+lstm_perf_3$training_error
+```
+
+    ## # A tibble: 1 × 8
+    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
+    ## # … with 1 more variable: mse <dbl>
+
+``` r
 lstm_perf_3$val_plot
 ```
 
@@ -672,18 +689,8 @@ lstm_perf_3$performance
 
     ## # A tibble: 1 × 8
     ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
-    ##   <fct> <fct>      <dbl>       <dbl>      <dbl> <lgl>                   <dbl>
-    ## 1 mae   adam          20           2         10 FALSE                     0.1
-    ## # … with 1 more variable: mse <dbl>
-
-``` r
-lstm_perf_3$training_error
-```
-
-    ## # A tibble: 1 × 8
-    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
-    ##   <fct> <fct>      <dbl>       <dbl>      <dbl> <lgl>                   <dbl>
-    ## 1 mae   adam          20           2         10 FALSE                     0.1
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
     ## # … with 1 more variable: mse <dbl>
 
 # SVR
@@ -765,19 +772,10 @@ svr_fit_func <- function(hyperparams, data_lists){
 
 ``` r
 # Tune SVR regressions
-svr_hyp <- expand.grid(gamma = c(exp(-2.5)),
-                       lambda = c(exp(-2.5))) %>%
+svr_hyp <- expand.grid(gamma = c(exp(seq(-2.5, 8, 1.5))),
+                       lambda = c(exp(seq(-2.5, 8, 1.5)))) %>%
     split(., seq(nrow(.)))
-
-svr_fit <- hyp_tune_func(data_lists = data_svr_lists,
-                         data_actual = data_val_scaled %>% tail(-1),
-                         hyperparams = svr_hyp,
-                         fit_func = svr_fit_func, 
-                         type = "svr")
 ```
-
-    ## [1] "1 DONE!!"
-    ## [1] "DONE!!"
 
 Select the combination of hyperparameters that resulted in the lowest
 MSE of the validation set. Create plots of the training data and
@@ -785,6 +783,21 @@ forecasts and the valdiation data and forecasts. Determine forcast
 performance with MSE.
 
 ``` r
+if(!cache){
+  tic()
+  svr_fit <- hyp_tune_func(data_lists = data_svr_lists,
+                         data_actual = data_val_scaled %>% tail(-1),
+                         hyperparams = svr_hyp,
+                         fit_func = svr_fit_func, 
+                         type = "svr")
+  write.csv(svr_fit, "cache/svr_tune")
+  toc()
+}
+
+if(cache){
+  svr_fit <- read.csv("cache/svr_tune", row.names = 1) %>% as_tibble()
+}
+
 # Best hyperparameters
 
 best_tune_svr <- svr_fit %>% filter(mse == min(mse))
@@ -858,19 +871,10 @@ three-day ahead volatility from the validation set.
 
 ``` r
 # Tune SVR regressions
-svr_hyp_3 <- expand.grid(gamma = c(exp(-2.5)),
-                       lambda = c(exp(-2.5))) %>%
+svr_hyp_3 <- expand.grid(gamma = c(exp(seq(-2.5, 8, 1.5))),
+                       lambda = c(exp(seq(-2.5, 8, 1.5)))) %>%
     split(., seq(nrow(.)))
-
-svr_fit_3 <- hyp_tune_func(data_lists = data_svr_lists_3,
-                         data_actual = data_val_scaled %>% tail(-4),
-                         hyperparams = svr_hyp_3,
-                         fit_func = svr_fit_func, 
-                         type = "svr")
 ```
-
-    ## [1] "1 DONE!!"
-    ## [1] "DONE!!"
 
 Select the combination of hyperparameters that resulted in the lowest
 MSE of the validation set. Create plots of the training data and
@@ -878,6 +882,21 @@ forecasts and the validation data and forecasts. Determine forecast
 performance with MSE.
 
 ``` r
+if(!cache){
+  tic()
+  svr_fit_3 <- hyp_tune_func(data_lists = data_svr_lists_3,
+                         data_actual = data_val_scaled %>% tail(-4),
+                         hyperparams = svr_hyp_3,
+                         fit_func = svr_fit_func, 
+                         type = "svr")
+  write.csv(svr_fit_3, "cache/svr_tune_3")
+  toc()
+}
+
+if(cache){
+  svr_fit_3 <- read.csv("cache/svr_tune_3", row.names = 1) %>% as_tibble()
+}
+
 # Best hyperparameters
 
 best_tune_svr_3 <- svr_fit_3 %>% filter(mse == min(mse))
@@ -927,3 +946,58 @@ svr_perf_3$performance
     ## 1 0.0821 0.0821 0.0462
 
 # Test
+
+## One Day Forecasts
+
+## Three Day Forecasts
+
+``` r
+### Create LSTM Data Arrays
+data_lstm_lists_3_test <- data_array_func(data = data_train_full_scaled, 
+                              val = data_test_scaled,
+                              initial = 2,
+                              assess = 1,
+                              skip = 0, 
+                              type = "three_day")
+
+# Fit Model and Evaluate Performance
+
+lstm_perf_3_test <- perf_plot(data_lists = data_lstm_lists_3_test,
+                         data_train = data_train_full_scaled %>% tail(-4),
+                         data_val = data_test_scaled %>% tail(-4), 
+                       hyperparams = best_lstm_tune_3,
+                       fit_func = lstm_fit_func,
+                       type = "lstm",
+                       train_title = "LSTM Full Train Plot",
+                       val_title = "LSTM Test Plot")
+
+lstm_perf_3_test$train_plot
+```
+
+![](README_files/figure-markdown_github/test_three_day-1.png)
+
+``` r
+lstm_perf_3_test$training_error
+```
+
+    ## # A tibble: 1 × 8
+    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
+    ## # … with 1 more variable: mse <dbl>
+
+``` r
+lstm_perf_3_test$val_plot
+```
+
+![](README_files/figure-markdown_github/test_three_day-2.png)
+
+``` r
+lstm_perf_3_test$performance
+```
+
+    ## # A tibble: 1 × 8
+    ##   loss  optimizer epochs lstm_layers lstm_units return_sequences dropout_rate
+    ##   <chr> <chr>      <int>       <int>      <int> <lgl>                   <dbl>
+    ## 1 mse   adam          20           2         40 TRUE                        0
+    ## # … with 1 more variable: mse <dbl>
