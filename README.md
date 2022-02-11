@@ -18,8 +18,8 @@ gc() # garbage collection - It can be useful to call gc after a large object has
 ```
 
     ##          used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
-    ## Ncells 422372 22.6     873314 46.7         NA   666925 35.7
-    ## Vcells 804485  6.2    8388608 64.0     102400  1823999 14.0
+    ## Ncells 422376 22.6     873334 46.7         NA   666908 35.7
+    ## Vcells 804567  6.2    8388608 64.0     102400  1824439 14.0
 
 ``` r
 library(tidyverse)
@@ -280,6 +280,11 @@ vol_plot_func(data = data_train_scaled,
 ![](README_files/figure-markdown_github/garch-3.png)
 
 ``` r
+garch_mse <- mean((sigma(garch_fit) %>% xts_tbl()%>% 
+                rename(sigma = coredata.xts.) %>% 
+                mutate(date = as.Date(date)) %>% 
+                mutate(sigma = (sigma - min(data_train$y))/(max(data_train$y) - min(data_train$y))/100)%>% pull(sigma) - data_train_scaled %>% pull(y))^2)
+
 # Val
 
 # Fit Model
@@ -308,6 +313,13 @@ vol_plot_func(data = data_val_scaled,
 ```
 
 ![](README_files/figure-markdown_github/garch-4.png)
+
+``` r
+garch_mse <- mean((sigma(garch_fit_val) %>% xts_tbl()%>% 
+                rename(sigma = coredata.xts.) %>% 
+                mutate(date = as.Date(date)) %>% 
+                mutate(sigma = (sigma - min(data_val$y))/(max(data_val$y) - min(data_val$y))/100) %>% pull(sigma) - data_val_scaled %>% pull(y))^2)
+```
 
 # LSTM Model
 

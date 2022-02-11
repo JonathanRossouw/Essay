@@ -12,18 +12,33 @@ test_cond_het_func <- function(data = data){
     ret_plot <- Plotdata %>% ggplot() +
         geom_line(aes(x = date, y = Returns, colour = ReturnType), alpha = 0.8) +
 
-        ggtitle("Return Type Persistence") +
+        labs(title = "Return Type Persistence", x = "") +
         facet_wrap(~ReturnType, nrow = 3, ncol = 1, scales = "free") +
 
         guides(alpha = "none", colour = "none") +
-        fmxdat::theme_fmx()
+        fmxdat::theme_fmx(axis.size = ggpts(15))
 
     acf_1 <- Plotdata %>%
-        ggplot() + geom_acf(aes(x = ..lag.., y = dlogret)) + theme_bw() + labs(subtitle = "ACF of Dlog Ret", y = "")
+        ggplot() + geom_acf(aes(x = ..lag.., y = dlogret)) + theme_minimal_hgrid() +
+        labs(subtitle = "ACF Dlog Ret", y = "") +
+        theme(plot.subtitle=element_text(size = 10),
+              axis.title.x = element_text(size = 8.5),
+              axis.text.x = element_text(size = 7.5),
+              axis.text.y = element_text(size = 7.5))
     acf_2 <- Plotdata %>%
-        ggplot() + geom_acf(aes(x = ..lag.., y = dlogret^2)) + theme_bw() + labs(subtitle = "ACF of Sqaured Dlog Ret", y = "")
+        ggplot() + geom_acf(aes(x = ..lag.., y = dlogret^2)) + theme_minimal_hgrid() +
+        labs(subtitle = "AFC (Dlog Ret)^2", y = "") +
+        theme(plot.subtitle=element_text(size = 10),
+              axis.title.x = element_text(size = 8.5),
+              axis.text.x = element_text(size = 7.5),
+              axis.text.y = element_text(size = 7.5))
     acf_3 <- Plotdata %>%
-        ggplot() + geom_acf(aes(x = ..lag.., y = abs(dlogret))) + theme_bw() + labs(subtitle = "ACF of Absolute value of Dlog Ret", y = "")
+        ggplot() + geom_acf(aes(x = ..lag.., y = abs(dlogret))) + theme_minimal_hgrid() +
+        labs(subtitle = "ACF |Dlog Ret|", y = "")+
+        theme(plot.subtitle=element_text(size = 10),
+              axis.title.x = element_text(size = 8.5),
+              axis.text.x = element_text(size = 7.5),
+              axis.text.y = element_text(size = 7.5))
 
     acf_plots <- plot_grid(acf_1, acf_2, acf_3, nrow = 1)
 

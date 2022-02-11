@@ -229,6 +229,11 @@ vol_plot_func(data = data_train_scaled,
                 mutate(sigma = (sigma - min(data_train$y))/(max(data_train$y) - min(data_train$y))/100),
               title = "Comparison: Returns Sigma vs Sigma from Garch")
 
+garch_mse <- mean((sigma(garch_fit) %>% xts_tbl()%>% 
+                rename(sigma = coredata.xts.) %>% 
+                mutate(date = as.Date(date)) %>% 
+                mutate(sigma = (sigma - min(data_train$y))/(max(data_train$y) - min(data_train$y))/100)%>% pull(sigma) - data_train_scaled %>% pull(y))^2)
+
 # Val
 
 # Fit Model
@@ -243,6 +248,11 @@ vol_plot_func(data = data_val_scaled,
                 mutate(date = as.Date(date)) %>% 
                 mutate(sigma = (sigma - min(data_val$y))/(max(data_val$y) - min(data_val$y))/100),
               title = "Comparison: Returns Sigma vs Sigma from Garch")
+
+garch_mse <- mean((sigma(garch_fit_val) %>% xts_tbl()%>% 
+                rename(sigma = coredata.xts.) %>% 
+                mutate(date = as.Date(date)) %>% 
+                mutate(sigma = (sigma - min(data_val$y))/(max(data_val$y) - min(data_val$y))/100) %>% pull(sigma) - data_val_scaled %>% pull(y))^2)
 ```
 
 # LSTM Model
@@ -566,7 +576,6 @@ lstm_perf_3$train_plot
 lstm_perf_3$training_error
 lstm_perf_3$val_plot
 lstm_perf_3$performance
-
 
 ```
 

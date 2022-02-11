@@ -1,28 +1,186 @@
-@article{fama1997,
-  title={Industry costs of equity},
-  author={Fama, Eugene F and French, Kenneth R},
-  journal={Journal of financial economics},
-  volume={43},
+@article{LIU,
+title = {Novel volatility forecasting using deep learning–Long Short Term Memory Recurrent Neural Networks},
+journal = {Expert Systems with Applications},
+volume = {132},
+pages = {99-109},
+year = {2019},
+issn = {0957-4174},
+doi = {https://doi.org/10.1016/j.eswa.2019.04.038},
+url = {https://www.sciencedirect.com/science/article/pii/S0957417419302635},
+author = {Yang Liu},
+keywords = {Deep learning, Long Short Term Memory Recurrent Neural Networks, Support Vector Machines (SVM), Generalized Autoregressive Conditional Heteroskedasticity (GARCH) model, Volatility forecasting},
+abstract = {Abstracts
+The volatility is related to financial risk and its prediction accuracy is very important in portfolio optimisation. A large body of literature to-date suggests Support Vector Machines (SVM) as the “best of regression” algorithms for financial data regression. Recent work however found that new deep learning––Long Short Term Memory Recurrent Neural Networks (LSTM RNNs) outperformed SVM for classification problems. In the present paper we conduct a new unbiased evaluation of these two modelling techniques for regression problems, and we also compare them with a popular regression model - Generalized Autoregressive Conditional Heteroskedasticity (GARCH) model for financial volatility or risk forecasting. Our experiments using financial data show that the LSTM RNNs performed as good as v-SVR for large interval volatility forecasting and both performed much better than GARCH model for two financial indices (S&P 500 and AAPL). The LSTM RNNS deep learning method can learn from big raw data and can be run with many hidden layers and neurons under GPU to achieve a good prediction for long sequence data compared to the support vector regression. The deep learning technique - LSTM RNNs with big data can be used to improve the volatility prediction instead of v-SVR when the v-SVR does not predict well for some financial stocks of a portfolio. This will help investors to win the competition to maximize their profit.}
+}
+
+@book{vapnik,
+  title={The nature of statistical learning theory},
+  author={Vapnik, Vladimir},
+  year={1999},
+  publisher={Springer science \& business media}
+}
+
+@article{svr_garch,
+  title={Estimating GARCH models using support vector machines},
+  author={P{\'e}rez-Cruz, Fernando and Afonso-Rodriguez, Julio A and Giner, Javier},
+  journal={Quantitative Finance},
+  volume={3},
+  number={3},
+  pages={163},
+  year={2003},
+  publisher={IOP Publishing}
+}
+
+@article{ann,
+  title={A comparison between regression, artificial neural networks and support vector machines for predicting stock market index},
+  author={Sheta, Alaa F and Ahmed, Sara Elsir M and Faris, Hossam},
+  journal={Soft Computing},
+  volume={7},
+  number={8},
+  pages={2},
+  year={2015}
+}
+
+@article{sa_garch,
+title = {Structural breaks and GARCH models of stock return volatility: The case of South Africa},
+journal = {Economic Modelling},
+volume = {29},
+number = {6},
+pages = {2435-2443},
+year = {2012},
+issn = {0264-9993},
+doi = {https://doi.org/10.1016/j.econmod.2012.06.038},
+url = {https://www.sciencedirect.com/science/article/pii/S0264999312002118},
+author = {Ali Babikir and Rangan Gupta and Chance Mwabutwa and Emmanuel Owusu-Sekyere},
+keywords = {Stock return volatility, Structural breaks, In-sample tests, Out-of-sample tests, GARCH models},
+abstract = {This paper investigates the empirical relevance of structural breaks in forecasting stock return volatility using both in-sample and out-of-sample tests applied to daily returns of the Johannesburg Stock Exchange (JSE) All Share Index from 07/02/1995 to 08/25/2010. We find evidence of structural breaks in the unconditional variance of the stock returns series over the period, with high levels of persistence and variability in the parameter estimates of the GARCH(1,1) model across the sub-samples defined by the structural breaks. This indicates that structural breaks are empirically relevant to stock return volatility in South Africa. However, based on the out-of-sample forecasting exercise, we find that even though there structural breaks in the volatility, there are no statistical gains from using competing models that explicitly accounts for structural breaks, relative to a GARCH(1,1) model with expanding window. This could be because of the fact that the two identified structural breaks occurred in our out-of-sample, and recursive estimation of the GARCH(1,1) model is perhaps sufficient to account for the effect of the breaks on the parameter estimates. Finally, we highlight that, given the point of the breaks, perhaps what seems more important in South Africa, is accounting for leverage effects, especially in terms of long-horizon forecasting of stock return volatility.}
+}
+
+@article{engle,
+  title={Autoregressive conditional heteroscedasticity with estimates of the variance of United Kingdom inflation},
+  author={Engle, Robert F},
+  journal={Econometrica: Journal of the econometric society},
+  pages={987--1007},
+  year={1982},
+  publisher={JSTOR}
+}
+
+
+@article{nelson,
+ ISSN = {00129682, 14680262},
+ URL = {http://www.jstor.org/stable/2938260},
+ abstract = {GARCH models have been applied in modelling the relation between conditional variance and asset risk premia. These models, however, have at least three major drawbacks in asset pricing applications: (i) Researchers beginning with Black (1976) have found a negative correlation between current returns and future returns volatility. GARCH models rule this out by assumption. (ii) GARCH models impose parameter restrictions that are often violated by estimated coefficients and that may unduly restrict the dynamics of the conditional variance process. (iii) Interpreting whether shocks to conditional variance "persist" or not is difficult in GARCH models, because the usual norms measuring persistence often do not agree. A new form of ARCH is proposed that meets these objections. The method is used to estimate a model of the risk premium on the CRSP Value-Weighted Market Index from 1962 to 1987.},
+ author = {Daniel B. Nelson},
+ journal = {Econometrica},
+ number = {2},
+ pages = {347--370},
+ publisher = {[Wiley, Econometric Society]},
+ title = {Conditional Heteroskedasticity in Asset Returns: A New Approach},
+ volume = {59},
+ year = {1991}
+}
+
+@article{lstm,
+  title={Learning to forget: Continual prediction with LSTM},
+  author={Gers, Felix A and Schmidhuber, J{\"u}rgen and Cummins, Fred},
+  journal={Neural computation},
+  volume={12},
+  number={10},
+  pages={2451--2471},
+  year={2000},
+  publisher={MIT Press}
+}
+
+@article{svr-GARCH,
+  title={Forecasting financial returns volatility: a GARCH-SVR model},
+  author={Sun, Hao and Yu, Bo},
+  journal={Computational Economics},
+  volume={55},
   number={2},
-  pages={153--193},
-  year={1997},
+  pages={451--471},
+  year={2020},
+  publisher={Springer}
+}
+
+@article{sa-gold,
+  title={Structural analysis and forecast of gold price returns},
+  author={Chai, Jian and Zhao, Chenyu and Hu, Yi and Zhang, Zhe George},
+  journal={Journal of Management Science and Engineering},
+  volume={6},
+  number={2},
+  pages={135--145},
+  year={2021},
   publisher={Elsevier}
 }
 
-
-@article{grinold2000,
-  title={Active portfolio management},
-  author={Grinold, Richard C and Kahn, Ronald N},
-  year={2000},
-  publisher={McGraw Hill New York, NY}
+@article{sa-ex,
+  title={Forecasting daily and monthly exchange rates with machine learning techniques},
+  author={Plakandaras, Vasilios and Papadimitriou, Theophilos and Gogas, Periklis},
+  journal={Journal of Forecasting},
+  volume={34},
+  number={7},
+  pages={560--573},
+  year={2015},
+  publisher={Wiley Online Library}
 }
 
+@article{sa-garch2,
+  title={Volatility forecasting with the wavelet transformation algorithm garch model: Evidence from african stock markets},
+  author={Ismail, Mohd Tahir and Audu, Buba and Tumala, Mohammed Musa},
+  journal={The Journal of Finance and Data Science},
+  volume={2},
+  number={2},
+  pages={125--135},
+  year={2016},
+  publisher={Elsevier}
+}
 
-  @Manual{Texevier,
-    title = {{Texevier}: {P}ackage to create Elsevier templates for Rmarkdown},
-    author = {N.F. Katzke},
-    organization = {Bureau for Economic Research},
-    address = {Stellenbosch, South Africa},
-    note = {version 0.1.2},
-    year = {2017},
-  }
+@article{vol-transformer,
+  title={Multi-Transformer: A New Neural Network-Based Architecture for Forecasting S\&P Volatility},
+  author={Ramos-P{\'e}rez, Eduardo and Alonso-Gonz{\'a}lez, Pablo J and N{\'u}{\~n}ez-Vel{\'a}zquez, Jos{\'e} Javier},
+  journal={Mathematics},
+  volume={9},
+  number={15},
+  pages={1794},
+  year={2021},
+  publisher={Multidisciplinary Digital Publishing Institute}
+}
+
+@article{svr-garch-2,
+  title={Volatility forecasting via SVR--GARCH with mixture of Gaussian kernels},
+  author={Bezerra, Pedro Correia S and Albuquerque, Pedro Henrique M},
+  journal={Computational Management Science},
+  volume={14},
+  number={2},
+  pages={179--196},
+  year={2017},
+  publisher={Springer}
+}
+
+@misc{tsay,
+  title={An Introduction to Financial Data Analysis},
+  author={Tsay, RS},
+  year={2012},
+  publisher={Wiley, Hoboken, NJ}
+}
+
+@article{lit_ml,
+  title={Literature review: Machine learning techniques applied to financial market prediction},
+  author={Henrique, Bruno Miranda and Sobreiro, Vinicius Amorim and Kimura, Herbert},
+  journal={Expert Systems with Applications},
+  volume={124},
+  pages={226--251},
+  year={2019},
+  publisher={Elsevier}
+}
+
+@article{li,
+  title={Network environment and financial risk using machine learning and sentiment analysis},
+  author={Li, Nan and Liang, Xun and Li, Xinli and Wang, Chao and Wu, Desheng Dash},
+  journal={Human and Ecological Risk Assessment},
+  volume={15},
+  number={2},
+  pages={227--252},
+  year={2009},
+  publisher={Taylor \& Francis}
+}

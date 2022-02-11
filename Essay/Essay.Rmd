@@ -3,7 +3,7 @@
 # Remove comments and add values where applicable.
 # The descriptions below should be self-explanatory
 
-title: "Comparing SVR to LSTM ANN for Volatility Forecasting"
+title: "Forecasting South African Financial Market Volatility with Machine Learning"
 #subtitle: "This will appear as Right Header"
 
 documentclass: "elsarticle"
@@ -92,7 +92,7 @@ output:
     fig_width: 3.5 # Adjust default figure sizes. This can also be done in the chunks of the text.
     fig_height: 3.5
 abstract: |
-  Volatility modelling is an important problem in financial econmetrics. The recent prolierfation of powerful machine learning techniques offers a models that are well suited to this complex problem. In this paper volatility forecasting by Support Vector Regression (SVR) and Long-Short Term Memory Recurrent Neural Networks (LSTM) are compared. The JSE All Share index is used to compare. An EGARCH models is used as a baseline model. The LSTM model performed best at one-day ahead and three-day ahead forecasting. 
+  Volatility modelling is an important problem in financial econmetrics. The recent proliferation of powerful machine learning techniques offer models that are well suited to this complex problem. In this paper volatility forecasting of the JSE All Share index for different machine learning techniques are compared. The Support Vector Regression (SVR) and Long-Short Term Memory Recurrent Neural Networks (LSTM) are compared.  An EGARCH models is used as a baseline model. The LSTM model performed best at one-day ahead and the SVR at three-day ahead forecasting. 
 ---
 
 <!-- First: Set your default preferences for chunk options: -->
@@ -100,7 +100,7 @@ abstract: |
 <!-- If you want a chunk's code to be printed, set echo = TRUE. message = FALSE stops R printing ugly package loading details in your final paper too. I also suggest setting warning = FALSE and checking for warnings in R, else you might find ugly warnings in your paper. -->
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 6, fig.height = 5, fig.pos="H", fig.pos = 'H')
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 4, fig.height = 3, fig.pos="H", fig.pos = 'H')
 
 rm(list = ls()) # Clean your environment:
 gc() # garbage collection - It can be useful to call gc after a large object has been removed, as this may prompt R to return memory to the operating system.
@@ -119,18 +119,170 @@ cache <- TRUE
 
 # Introduction \label{Introduction}
 
-Volatility modelling is an important and complex problem in financial econometrics. The volatility the returns of an asset are an important measure for the risk of an asset. Volatility itself is a key factor in options pricing and in asset allocation. The Value-at-Risk calculations made for risk management rely on measures of volatility. There has been a recent proliferation of machine learning techniques that can greatly improve the precision of volatility forecasting. The traditional forecasting techniques build on the generalized autoregressive conditional heteroscedastic (GARCH) class of models are well suited for uncovering the true patterns of volatility. However, their ability to accurately forecast volatility is limited. \par
-The use of machine learning techniques including Support Vector Regression (SVR) and artifical neural network models has grown in recent years with far superior performance (citation needed). Recently proposed volatility models using the long-short term memeroy recurrent neural network (LSTM) have futher improved forecasting precision(citation needed). While these models have been used to model volatility in the US, only the SVR and GARCH models have been applied to South African data. \par
-The volatility of the JSE ALSI total returns index (TRI) is modelled. This paper finds that the GARCH models perform poorly on pure forecasting precision. The SVR and LSTM models perform similarly well on one-day ahead forecasting with the LSTM marginally better. On three-day ahead forecasting 
-
-
-The remainder of the paper is organised as follows: the data and methodology is described, the results are analysed followed by the conclusion.
-
-# Data  {-}
-
-The data used in this paper is the total return index (TRI) of the JSE ALSI. The TRI is price adjusted for dividends, stock splits and other corporate actions. The data is split into training, validation and test series. The training set is from 05-01-2009 to 30-12-2016, the validation set is from 03-01-2017 to 31-12-2018, and the test set is from 03-01-2019 to 31-12-2019. Returns, dlogret, are calculated using log difference of TRI, log(TRI) - log(lag(TRI)). The volatility, sigma, is calculated as dlogret^2.
+Volatility modelling is an important and complex problem in financial econometrics. The volatility the returns of an asset are an important measure for the risk of an asset. Volatility itself is a key factor in options pricing and in asset allocation [@tsay]. The Value-at-Risk calculations made for risk management rely on measures of volatility. There has been a recent proliferation of machine learning techniques that have been applied to financial data includig volatility forecasting [@lit_ml]. The traditional forecasting techniques build on the generalized autoregressive conditional heteroscedastic (GARCH) class of models are well suited for uncovering the true patterns of volatility. However, their ability to accurately forecast volatility is limited. \par
+The use of machine learning techniques including Support Vector Regression (SVR) and artificial neural network models has grown in recent years and have improved the precision of volatility forecasting [@svr_garch \& @ann]. Recently proposed volatility models using the long-short term memeroy recurrent neural network (LSTM) archiceture have futher improved forecasting precision [@LIU]. While these models have been used to model volatility in the US, only the SVR and GARCH models have been applied to South African return volatility forecasting, metal price forecasting and exchange rates forecasting [@sa_garch, @sa-garch2, @sa-gold \& sa-ex]. \par
+In this paper, volatility of the JSE ALSI total returns index (TRI) is modelled. This paper finds that the GARCH models perform poorly on pure forecasting precision. The SVR and LSTM models perform similarly well on both one-day and three-day ahead forecasting. For one-day ahead forecasting the LSTM is marginally better while for three-day ahead forecasting the SVR is marginally better than the LSTM model. \par
+The remainder of the paper is organised as follows: the data and methodology are described, the results are analysed followed by the conclusion.
 
 #  Methodology \label{Meth}
+
+The methodology section is split into a description of the data, a description of each class of model and the sets taking in analysis.
+
+## Data 
+
+The data used in this paper were the total return index (TRI) of the JSE ALSI. The TRI is price adjusted for dividends, stock splits and other corporate actions. The data was split into training, validation and test series. The training set was from 05-01-2009 to 30-12-2016, the validation set was from 03-01-2017 to 31-12-2018, and the test set was from 03-01-2019 to 31-12-2019. Dlog returns were calculated using the log difference of TRI given in equation \ref{dlog}. 
+
+\begin{equation}\label{dlog}
+r_t = \ln(TRI_t) - \ln(TRI_{t-1})
+\end{equation}
+
+## GARCH
+
+The returns series often follow a mean equation given by 
+\begin{equation}\label{mean_eq}
+r_t = \alpha + \mu_t + \varepsilon_t
+\end{equation}
+which can be modelled using an ARIMA class of models. The residual, $\varepsilon_t$, has $E(\varepsilon_t)=0$ and constant unconditional $E(\varepsilon_t^2) = c$. This means the equation \ref{mean_eq} has homoscedastic errors. However, conditionally the equation \ref{mean_eq} displays heteroscedastic errors since there are periods of autocorrelation displayed by the error variance [@engle]. The GARCH class of models apply a ARMA type of model to the squared residuals of the mean equation. This allows for the residual to be multiplicatively decomposed into a white noise, $\eta_t$ component and a cleaned volatility compoenent $h_t$. The GARCH formula is given by
+
+$$
+y_t = \alpha + \mu_t + \varepsilon_t 
+$$
+$$
+\varepsilon_t = h_t\eta_t
+$$
+$$
+h_t = \sqrt{\alpha_0 + \sum_{i=1}^p \beta_i h_{t-i}^2 + \sum_{i=1}^q \alpha_i \varepsilon_{t-i}^2}\;\; ; \;\;\;\;\;\ \eta_t \sim N(0,1)
+$$
+
+$$
+\text{with constants:} \;\;\; \alpha_0>0, \; \alpha_i >0, \; \beta_i>0
+$$
+$$
+0 < \sum_{i=1}^p \beta_i+ \sum_{i=1}^q \alpha_i < 1
+$$
+
+The unconditional mean of the residual is given by 
+$$
+E_t(\varepsilon_t) = 0
+$$
+and the unconditional variance is given by the following constant
+$$
+E_t(\varepsilon_t^2) = \frac{\alpha_0}{1-(\sum_{i=1}^p \beta_i+ \sum_{i=1}^q \alpha_i)}
+$$
+with $0 < \sum_{i=1}^p \beta_i+ \sum_{i=1}^q \alpha_i < 1$. The  conditional variance is given by 
+$$
+E_{t-1}(\varepsilon_t^2) = h_t^2 = \alpha_0 + \sum_{i=1}^p \beta_i h_{t-i}^2 + \sum_{i=1}^q \alpha_i \varepsilon_{t-i}^2
+$$
+\par
+Many additions have been made to the original GARCH formulation. This includes the exponential GARCH (EGARCH) model. EGARCH controls for the assyemtry in volatility between positive and negative movements in the returns series [@nelson]. The EGARCH model is given by 
+
+$$
+\ln(h_t^2) = \beta_0 + \beta_1\ln(h_{t-1}^2) + \gamma_1 \cdot \frac{\varepsilon_{t-1}}{h_{t-1}} + \gamma_2 \Bigg\{ \Bigg| \frac{\varepsilon_{t-1}}{h_{t-1}} \Bigg| +  \sqrt{\frac{2}{\pi}}\Bigg\}
+$$
+with the assumption of a normally distributed noise component, $E\Big(\frac{\varepsilon_{t-1}}{h_{t-1}}\Big) = \sqrt{\frac{2}{\pi}}$.
+
+
+## LSTM
+
+The LSTM architecture specifically refers to a type of recurrent cell designed specifically for sequential data [@lstm]. The LSTM can be viewed as a type of encoder that encodes the features of a sequence that can then be fed to a dense multilayer perceptron which then produces predictions or forecasts. The LSTM is special in that along with taking in the current observation and the encoded previous observation it also keeps track of the cell state of the previous cell. Together the three inputs are fed through gates to determine the importance of each input in the encoding of the current observation. The output is an encoded observation and the current cell state. The steps of a single LSTM cell are give by 
+
+\underline{Step a:} compute forget and input gates
+\begin{align}
+    \text{forget gate: } \mathbf{g}^{(f)} &= \boldsymbol{\sigma}_{sig}(\mathbf{b}^{(f)} + \mathbf{V}^{(f)} \mathbf{h}^{-} + \mathbf{W}^{(f)}\mathbf{x}) \\
+    \text{input gate: } \mathbf{g}^{(i)} &= \boldsymbol{\sigma}_{sig}(\mathbf{b}^{(i)} + \mathbf{V}^{(i)} \mathbf{h}^{-} + \mathbf{W}^{(i)} \mathbf{x})
+\end{align}
+\underline{Step b:} compute the Elman update
+\begin{equation}
+    \mathbf{h}^{+} = \boldsymbol{\sigma}_{tanh}(\mathbf{b} + \mathbf{V}\mathbf{h}^{-} \mathbf{W}\mathbf{x})
+\end{equation}
+\underline{Step c:} compute output gate
+\begin{equation}
+    \text{output gate: } \mathbf{g}^{(o)} = \boldsymbol{\sigma}_{sig}(\mathbf{b}^{(o)} + \mathbf{V}^{(o)} \mathbf{h}^{-} + \mathbf{W}^{(o)}\mathbf{x})
+\end{equation}
+\underline{Step d:} update cell state
+\begin{equation}
+    \mathbf{c}^{+} = \mathbf{g}^{(f)} \odot \mathbf{c}{-} + \mathbf{g}^{(i)} \odot \mathbf{h}^{+}
+\end{equation}
+\underline{Step d:} update memory
+\begin{equation}
+    \mathbf{h}^{+} \leftarrow \mathbf{g}^{(o)} \odot \boldsymbol{\sigma}_{tanh}(\mathbf{c}^{+})
+\end{equation}
+where $\mathbf{V}, \mathbf{W}$ are weight matrices, $\mathbf{b}$ are bias vectors, $\boldsymbol{\sigma}$ are activation functions, $\mathbf{h}$ is the hidden or encoded state, $\mathbf{c}$ is the cell state and $\mathbf{x}$ is the current observation. Figure \ref{fig:my_LSTM} shows a diagram of a single LSTM cell.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"bin/LSTM.drawio.png"}
+    \caption{LSTM model architecture}
+    \label{fig:my_LSTM}
+\end{figure}
+
+LSTM models are highly flexible as the LSTM only refers to a single cell that can be used in any configuration of neural network architecture. The following hyperparameters, amongst others, can be tuned: the loss function, the number of LSTM layers, the number of LSTM units in each layer, the dropout rate, the number of epochs, and whether the first LSTM layer outputs a sequence. The LSTM models were implemented using the Keras API for Tensorflow.
+
+
+
+## SVR
+
+The SVR is an extension to the Support Vector Machine for regression problems. The SVR attempts to fit a "hyper-tube" in high dimensional space around the true function which is analogous to the SVM hyperplane [@vapnik]. Observations within the "hyper-tube" are not penalised while observations on the "hyper-tube" or outside the "hyper-tube" are penalised and become the support vectors for the "hyper-tube". By applying a basis expansion through the use of a kernel function, the "hyper-tube" can be expressed in a higher dimensional function space. This allows for extremely non-linear "hyper-tubes" to be formed. \par
+
+The SVR can be expressed as a Lagrangian optimisation problem. The primal optimisation problem is given as
+\begin{equation}\label{SVR}
+    \begin{array}{ll}
+    \underset{\beta_0, \boldsymbol{\tau}, \boldsymbol{\xi},\boldsymbol{\xi^* }} {\text{minimize}} & \frac{1}{2} \boldsymbol{\tau ' K \tau} + C \sum_{i=1}^N (\xi_i + \xi_i^*)\\
+        \text{subject to } & \beta_0 + \sum_{j=1}^N \tau_j K(\mathbf{x}_i,\mathbf{x}_j) - y_i \leq \varepsilon + \xi_i \text{ for all } i = 1,2,...,N\\
+        & y_i - \beta_0 - \sum_{j=1}^N \tau_j K(\mathbf{x}_i,\mathbf{x}_j) \leq \varepsilon + \xi_i^* \text{ for all } i = 1,2,...,N \\
+        & \xi_i \geq 0 \text{ for all } i =1,2,...,N.
+    \end{array}
+\end{equation}
+The dual optimisation problem is given by
+
+\begin{equation}
+    \begin{array}{ll}
+    \underset{\boldsymbol{\alpha}, \boldsymbol{\alpha^* }}{\text{maximize}} & -\varepsilon \mathbf{1}'(\boldsymbol{\alpha} + \boldsymbol{\alpha^* }) + \mathbf{y}'(\boldsymbol{\alpha^* } - \boldsymbol{\alpha})- \frac{1}{2} (\boldsymbol{\alpha^* } - \boldsymbol{\alpha})'\textbf{G}(\boldsymbol{\alpha^*} - \boldsymbol{\alpha}) \\
+    & \\
+    \text{subject to } & 0 \leq \alpha_i, \alpha_i^* \leq C \text{; for all } i = 1,2,...,N \\
+    & \\
+    \multicolumn{2}{c}{\sum_{i=1}^N (\alpha_i^* - \alpha_i) = 0}
+    \end{array}
+\end{equation}
+where $\mathbf{G}_{ij} = K(\mathbf{x}_i, \mathbf{x}_j).$ The optimisation of the SVR can be achieved through quadratic programming. In the implementation of liquidSVM, only a Gaussian radial basis function kernel is possible. The hyperparameters for the SVR are $\lambda = \frac{1}{C}$ from equation \ref{SVR}. Additionally, the hyperparameter $\gamma$ is given as the bandwidth of the kernel.
+
+## Analysis
+
+Since the true volatility, $\sigma_t$, of the returns series is not observable, a proxy was needed [@svr-GARCH]. Following the framework of [@li], a proxy of the volatility was calculated as the following
+\begin{equation}
+\sigma_t = \sum_{i=0}^4 r_{t-i}
+\end{equation}
+which is the 5-day rolling average of the squared return. This was used as the target variable in the machine learning models. A one-day ahead forecast and a three-day ahead forecast, where there was an interval of two days between the inputs and the target variable, were performed. \par
+In order to test whether a GARCH class of models was appropriate, the autoregressive nature of the returns series, $r_t$, squared returns series $r_t^2$ and the absolute value of the returns series, $|r_t|$, were tested using the autocorrelation functions (ACFs). Once the autoregressive nature of the squared residuals was determined, a AR(1) model was fit tp the return series for the mean equations. The residuals $\varepsilon_t$ were modelled using various GARCH models. The AIC was used to determine which model fit best. The best fitting model was used to forecast one-day ahead using the training and validation sets. The performance of the forecast was determine using the MSE given as
+$$
+MSE = \frac{1}{N}\sum_{i=1}^N(\hat{\sigma}_t - \sigma_t)^2
+$$
+where $\hat{\sigma}_t$ is the forecasted volatility at time $t$. \par
+The machine learning techniques were used for one-day ahead forecasts and three-day ahead forecasts. For the one-day ahead forecast, the machine learning models were trained using the $[\sigma_{t-1}, \varepsilon_{t-1}^2]$ where $\varepsilon_{t-1}$ is the residual of an AR(1) process of $r_t$ [@svr-garch-2]. For the three day ahead forecasts, the machine learning models were trained using the $[\sigma_{t-1}, \sigma_{t-2}, \varepsilon_{t-1}^2, \varepsilon_{t-2}^2]$. The performance of the forecasts of the machine learning models were determined by MSE. The machine learning techniques were tuned for the appropriate combination of hyperparameter using a grid-search. The values for the grid search are given in table \ref{tab:hyp_tune}.
+
+\begin{table}[ht]
+    \centering
+    \caption{Hyperparameter tuning grid}
+    \begin{tabular}{lp{80mm}}
+       \\[-1.8ex] \hline
+\hline \\[-1.8ex] 
+    Class of Models & Hyperparameters \\
+    \hline \\[-1.8ex] 
+        SVR & gamma: 0.082, 0.368, 1.649, 7.389, 33.115, 148.413, 665.142, 2980.958 \newline 
+        lambda: 0.082, 0.368, 1.649, 7.389, 33.115, 148.413, 665.142, 2980.958 \\
+        \hline \\[-1.8ex] 
+        LSTM & epochs: 10, 20, 50 \newline
+        loss: mse, mae \newline
+                        lstm layers: 1, 2 \newline
+                        lstm units: 10, 20, 40 \newline
+                        return sequences: TRUE, FALSE \newline
+                        dropout rate: 0, 0.1 \\
+                        \hline
+    \end{tabular}
+    \label{tab:hyp_tune}
+\end{table}
+
+The performance of the validation forecasts were used to determine the best hyperparameter combination. The best combinations for each class of model were compared with the best performing model being selected for the test set forecast. The forecast performance of the test set is given as the overall performance.
 
 # Results
 
@@ -168,23 +320,40 @@ data_test_scaled <- data_wrangling_func(data = data,
 
 ```
 
-```{r garch}
 
+```{r het_test}
 # Test for GARCH effects
 cond_het <- test_cond_het_func(data_train)
-cond_het
-
-# Find best model
 best_mod <- vol_select_func(data_train)
-best_mod
+```
 
+
+Following the plots in figure \ref{ret_plot}, there appears to be periods of autoregression in the squared and absolute values of the returns series. The ACFs are given in figure \ref{ACFs}. The Lung-Box-Pierce Test for has a test statistic of `r round(cond_het[[3]]$statistic[[1]], 2)` and a p-value of `r cond_het[[3]]$p.value[[1]]`. The null hypothesis of no conditional heteroscedasticity in the squared returns series was rejected. The LBQ test and GARCH-LM tests were not conducted.\par
+An AR(1) model was used for the mean equation. Table \ref{best_mod} shows the results of a number of different GARCH class models. Each model was fit with GARCH(1,1) specification. The EGARCH(1,1) model had the lowest AIC of `r round(best_mod[1,3], 4)`. The coefficients of the EGARCH(1,1) fit to the validation set are given in table \ref{EGARCH_tab}. Plots of the EGARCH forecasts are given in the appendix. \par
+
+The best hyperpameter combinations for both the one-day ahead and three-day ahead LSTM models were: mse, 20 epochs, 2, layers, 40 units, return sequence and dropout rate of 0. The combination of hyperparameters had no effect on the SVR models thus the hyperparameters were both set to 0.082. \par
+
+The best performing model from each class of models is given in table \ref{tab:tune_perf}. The EGARCH(1,1) model was only used for the one-day ahead forecasts. The LSTM model had the lowest MSE for the one-day ahead forecasting while the SVR model had the lowest MSE for the three-day ahead forecasting. Figure \ref{lstm_one} shows the LSTM models performance on the validation set where the red indicates the forecasted values and the grey is the true volatility. Figure \ref{svr_three} shows the SVR models performance on the three-day ahead forecast. Clearly the models were much better and predicting one-day ahead than three-days ahead.
+
+```{r garch_plot_1 , fig.align='center', fig.cap="Plots of returns, squared returns and absolute value of returns \\label{ret_plot}"}
+cond_het$`Return Plots`
+```
+
+```{r garch_plot_2 , fig.align='center', fig.cap="ACF plots of returns, squared returns and absolute value of returns \\label{ACFs}"}
+cond_het$`ACF Plots`
+```
+
+
+```{r garch_bst_fit, results = 'asis'}
+# Find best model
+stargazer::stargazer(best_mod, type = "latex", digits = 3, title = "Selection statistics of different GARCH based models", header = FALSE, label = "best_mod")
+```
+
+```{r garch}
 # Train
 
 # Fit Model
 garch_fit <- vol_func(data_train, "eGARCH")
-# Model Coefficients
-garch_fit@fit$matcoef
-
 # Plot Model
 garch_train_plot <- vol_plot_func(data = data_train_scaled, 
               fit = sigma(garch_fit) %>% xts_tbl()%>% 
@@ -193,12 +362,16 @@ garch_train_plot <- vol_plot_func(data = data_train_scaled,
                 mutate(sigma = (sigma - min(data_train$y))/(max(data_train$y) - min(data_train$y))/100),
               title = "Comparison: Returns Sigma vs Sigma from Garch")
 
+garch_mse <- mean((sigma(garch_fit) %>% xts_tbl()%>% 
+                rename(sigma = coredata.xts.) %>% 
+                mutate(date = as.Date(date)) %>% 
+                mutate(sigma = (sigma - min(data_train$y))/(max(data_train$y) - min(data_train$y))/100)%>% pull(sigma) - data_train_scaled %>% pull(y))^2)
+
 # Val
 
 # Fit Model
 garch_fit_val <- vol_func(data_val, "eGARCH")
 # Model Coefficients
-garch_fit_val@fit$matcoef
 
 # Plot Model
 garch_val_plot <- vol_plot_func(data = data_val_scaled, 
@@ -207,7 +380,17 @@ garch_val_plot <- vol_plot_func(data = data_val_scaled,
                 mutate(date = as.Date(date)) %>% 
                 mutate(sigma = (sigma - min(data_val$y))/(max(data_val$y) - min(data_val$y))/100),
               title = "Comparison: Returns Sigma vs Sigma from Garch")
+
+garch_val_mse <- mean((sigma(garch_fit_val) %>% xts_tbl()%>% 
+                rename(sigma = coredata.xts.) %>% 
+                mutate(date = as.Date(date)) %>% 
+                mutate(sigma = (sigma - min(data_val$y))/(max(data_val$y) - min(data_val$y))/100) %>% pull(sigma) - data_val_scaled %>% pull(y))^2)
 ```
+
+```{r garch_tab, results = 'asis'}
+stargazer::stargazer(garch_fit_val@fit$matcoef, title = "EGARCH validation model coefficients", digits = 3, label = "EGARCH_tab", header = FALSE)
+```
+
 
 ```{r lstm}
 
@@ -265,13 +448,9 @@ lstm_perf <- perf_plot(data_lists = data_lstm_lists,
                        type = "lstm",
                        train_title = "LSTM One-Day Ahead Train Plot",
                        val_title = "LSTM One-Day Ahead Validation Plot")
-
-lstm_perf$training_error$mse
-
-lstm_perf$performance$mse
 ```
 
-```{r plot_val, fig.align='center', fig.cap="LSTM One-Day Ahead Validation Forecast"}
+```{r plot_val, fig.align='center', fig.cap="LSTM One-Day Ahead Validation Forecast \\label{lstm_one}"}
 lstm_perf$val_plot
 ```
 
@@ -314,11 +493,6 @@ lstm_perf_3 <- perf_plot(data_lists = data_lstm_lists_3,
                        type = "lstm",
                        train_title = "LSTMThree-Day Ahead Train Plot",
                        val_title = "LSTM Three-Day Ahead Validation Plot")
-
-
-lstm_perf_3$training_error$mse
-
-lstm_perf_3$performance$mse
 ```
 
 
@@ -339,7 +513,7 @@ data_svr_array <- data_array_func(data = data_train_scaled,
 data_svr_lists <- data_svr_wrangle(data_array = data_svr_array)
 ```
 
-```{r svr_eval_perf}
+```{r svr_eval_perf, include=FALSE}
 
 if(!cache){
   tic()
@@ -369,10 +543,6 @@ svr_perf <- perf_plot(data_lists = data_svr_lists,
                       type = "svr",
                       train_title = "SVR One-Day Ahead Train Plot",
                       val_title = "SVR One-Day Ahead Validation Plot")
-
-svr_perf$training_error
-
-svr_perf$performance
 ```
 
 ```{r svr_3_list}
@@ -388,7 +558,7 @@ data_svr_array_3 <- data_array_func(data = data_train_scaled,
 data_svr_lists_3 <- data_svr_wrangle(data_array = data_svr_array_3)
 ```
 
-```{r svr_3_eval_perf}
+```{r svr_3_eval_perf, include=FALSE}
 
 
 if(!cache){
@@ -420,14 +590,36 @@ svr_perf_3 <- perf_plot(data_lists = data_svr_lists_3,
                       train_title = "SVR Three-Day Ahead Train Plot",
                       val_title = "SVR Three-Day Ahead Validation Plot")
 
-svr_perf_3$training_error
-
-svr_perf_3$performance
 ```
 
-```{r plot_val_3, fig.align='center', fig.cap="SVR Three-Day Ahead Validation Forecast"}
+```{r plot_val_3, fig.align='center', fig.cap="SVR Three-Day Ahead Validation Forecast \\label{svr_three}"}
 svr_perf_3$val_plot
 ```
+
+\begin{table}[ht]
+    \centering
+    \caption{Best hyperparameters training and validation performance}
+    \begin{tabular}{ccc}
+    \\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+        Model & Training MSE & Validation MSE\\
+        \hline \\[-1.8ex] 
+        \multicolumn{3}{c}{One-day ahead} \\
+        \hline
+        EGARCH & `r round(garch_mse, 4)` &  `r round(garch_val_mse, 4)` \\
+        LSTM & `r round(lstm_perf$training_error$mse, 4)` & `r round(lstm_perf$performance$mse, 4)`\\
+        SVR & `r round(svr_perf$training_error$mse, 4)` & `r round(svr_perf$performance$mse, 4)`\\
+        \hline \\[-1.8ex] 
+        \multicolumn{3}{c}{Three-day ahead} \\
+        \hline
+        LSTM & `r round(lstm_perf_3$training_error$mse, 4)` & `r round(lstm_perf_3$performance$mse, 4)`\\
+        SVR & `r round(svr_perf_3$training_error$mse, 4)` & `r round(svr_perf_3$performance$mse, 4)`\\
+        \hline \\[-1.8ex] 
+    \end{tabular}
+    \label{tab:tune_perf}
+\end{table}
+
+The results from the best models forecasts using the test set are given in table \ref{tab:test_perf}. Figure \ref{lstm_test_one} shows the LSTM model's one-day ahead test performance. Figure \ref{svr_test_three} shows the SVR model's three-day ahead test performance. The figures display that the one-day ahead forecast was far more precise than the three-day ahead forecasts. This could be due to the weak autocorrelation over that size interval. Thus the inputs three and four days prior to the forecast date having insufficient information. Using a longer inputs series may yield improved results especially for the LSTM which relies on large training data sets. The poor three-day forecasting performance illustrates the difficulty of forecasting volatility far into the future. Recently, new artificial neural network architectures including transformer models have offered potential to improved volatility forecasting results [@vol-transformer].
 
 
 ```{r test_one_day}
@@ -448,20 +640,15 @@ lstm_perf_test <- perf_plot(data_lists = data_lstm_lists_test,
                        type = "lstm",
                        train_title = "LSTM One-Day Ahead Full Train Plot",
                        val_title = "LSTM One-Day Ahead Test Plot")
-
-
-lstm_perf_test$training_error$mse
-
-lstm_perf_test$performance$mse
 ```
 
 
-```{r plot_test, fig.align='center', fig.cap="LSTM One-Day Ahead Test Forecast"}
+```{r plot_test, fig.align='center', fig.cap="LSTM One-Day Ahead Test Forecast \\label{lstm_test_one}"}
 lstm_perf_test$val_plot
 ```
 
 
-```{r test_three_day}
+```{r test_three_day, include=FALSE}
 # Create list of training and validation sets
 
 data_svr_array_3_test <- data_array_func(data = data_train_full_scaled,
@@ -482,18 +669,36 @@ svr_perf_3_test <- perf_plot(data_lists = data_svr_lists_3_test,
                       type = "svr",
                       train_title = "SVR Three-Day Ahead Full Training Plot",
                       val_title = "SVR Three-Day Ahead Test Plot")
-
-svr_perf_3_test$training_error
-svr_perf_3_test$performance
 ```
 
 
-```{r plot_3_test, fig.align='center', fig.cap="LSTM Three-Day Ahead Test Forecast"}
+\begin{table}[ht]
+    \centering
+    \caption{Forecasting full training and test performance}
+    \begin{tabular}{ccc}
+    \\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+        Model & Full Training MSE & Test MSE\\
+        \hline
+        \multicolumn{3}{c}{One-day ahead} \\
+        \hline
+        LSTM & `r round(lstm_perf_test$training_error$mse, 4)` & `r round(lstm_perf_test$performance$mse, 4)`\\
+        \hline \\[-1.8ex] 
+        \multicolumn{3}{c}{Three-day ahead} \\
+        \hline
+        SVR & `r round(svr_perf_3_test$training_error$mse, 4)` & `r round(svr_perf_3_test$performance$mse, 4)`\\
+        \hline \\[-1.8ex] 
+    \end{tabular}
+    \label{tab:test_perf}
+\end{table}
+
+```{r plot_3_test, fig.align='center', fig.cap="LSTM Three-Day Ahead Test Forecast \\label{svr_test_three}"}
 svr_perf_3_test$val_plot
 ```
 
 # Conclusion
 
+While forecasting returns series is of little use due to the potential for arbitrage opportunities, forecasting volatility is an important task in financial econometrics. In this paper, three different classes of volatility models were compared. For one-day ahead volatility modelling, the LSTM model performs best with the lowest MSE. The plots of the forecasts illustrate a very close fit to the data. For three-day ahead forecasting, the SVR model performs best. However, as illustrated by plots of the forecasts, the three-day ahead forecasts do not perform as well. The novel approach to using these machine learning techniques to the South African context show that their high levels of performance translates to this context. While volatility modelling, especially with long time intervals, still posses a significant challenge, machine learning techniques offer a method for more accurate forecasting.
 
 \newpage
 
@@ -541,6 +746,6 @@ lstm_perf_test$train_plot
 ```
 
 ```{r plot_10, fig.align='center', fig.cap="SVR Three-Day Ahead Full Training Forecast"}
-svr_perf_3_test$training_plot
+svr_perf_3_test$train_plot
 ```
 
